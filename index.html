@@ -347,6 +347,10 @@
     border-bottom:3px solid var(--verde);
   }
   .logo-login{width:78%;max-width:250px;height:auto;display:block;margin:0 auto 10px}
+  .mascote-login{
+    width:150px;height:auto;display:block;margin:4px auto 14px;
+    filter:drop-shadow(0 6px 12px rgba(0,0,0,.18));
+  }
   .cartao-login .marca h1{
     font-family:"Oswald","Poppins",sans-serif;
     font-size:.9rem;color:#fff;font-weight:500;
@@ -422,6 +426,7 @@
       <img src="logo-full.png" alt="Postos Full" class="logo-login">
       <h1>Controle de Margens</h1>
     </div>
+    <img src="mr-full-joinha.png" alt="Mr. Full" class="mascote-login">
     <div id="formEntrar">
       <label for="loginEmail">E-mail</label>
       <input type="email" id="loginEmail" autocomplete="username" placeholder="seu@email.com">
@@ -1369,6 +1374,13 @@ function desenharImagemSimulacao(){
       ctx.font = "600 66px Poppins, Arial, sans-serif";
       ctx.fillText("R$ " + (isFinite(m.cfR)?fmt(m.cfR,3):"—"), centro, my+380);
 
+      // Mr. Full fazendo joinha quando a margem é positiva (bom negócio!)
+      if (!negativo && mascoteImg && mascoteImg.complete && mascoteImg.naturalWidth){
+        const mh2 = 620;
+        const mw2 = mh2 * (mascoteImg.naturalWidth / mascoteImg.naturalHeight);
+        ctx.drawImage(mascoteImg, W - mw2 - 40, my + mh + 30, mw2, mh2);
+      }
+
       // Rodapé
       ctx.fillStyle = "#fff";
       ctx.textAlign = "center";
@@ -1381,16 +1393,25 @@ function desenharImagemSimulacao(){
 
     function roundRect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
 
-    // Carregar a logo e desenhar no topo
-    const logo = new Image();
-    logo.crossOrigin = "anonymous";
-    logo.onload = () => {
-      const lw = 560, lh = lw * (logo.height/logo.width);
-      ctx.drawImage(logo, centro - lw/2, 150, lw, lh);
+    // Carregar logo + mascote antes de desenhar
+    let mascoteImg = null;
+    const logo = new Image(); logo.crossOrigin = "anonymous";
+    const masc = new Image(); masc.crossOrigin = "anonymous";
+    let carregados = 0;
+    const talvezDesenhar = () => {
+      carregados++;
+      if (carregados < 2) return;   // espera as duas tentativas (logo + mascote)
+      if (logo.complete && logo.naturalWidth){
+        const lw = 560, lh = lw * (logo.height/logo.width);
+        ctx.drawImage(logo, centro - lw/2, 150, lw, lh);
+      }
+      if (masc.complete && masc.naturalWidth) mascoteImg = masc;
       desenhar();
     };
-    logo.onerror = () => desenhar();  // se a logo falhar, gera sem ela
+    logo.onload = talvezDesenhar;  logo.onerror = talvezDesenhar;
+    masc.onload = talvezDesenhar;  masc.onerror = talvezDesenhar;
     logo.src = "logo-full.png";
+    masc.src = "mr-full-joinha.png";
   });
 }
 
