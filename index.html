@@ -62,7 +62,29 @@
   }
   header .logo-app{height:36px;width:auto;display:block}
   #statusSalvo{font-size:.68rem;font-weight:400;font-family:"Poppins",sans-serif;text-transform:none;letter-spacing:0;color:#FFC9A3;margin-left:10px;opacity:0;transition:opacity .4s}
-  header .acoes{display:flex;gap:8px;flex-wrap:wrap}
+  .layout{display:flex;gap:14px;align-items:flex-start}
+  .principal{flex:1;min-width:0}
+  .menu-lateral{
+    width:192px;flex-shrink:0;
+    position:sticky;top:12px;
+    background:
+      radial-gradient(circle at 12% 14%, rgba(255,100,1,.14) 0 2px, transparent 3px),
+      linear-gradient(160deg,#161616 0%,var(--grafite-2) 100%);
+    background-size:22px 22px, cover;
+    border-radius:10px;
+    border-right:3px solid var(--verde);
+    padding:14px 12px;
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .menu-lateral button{
+    display:block;width:100%;text-align:left;
+    padding:11px 14px;font-size:.85rem;
+  }
+  @media (max-width:680px){
+    .layout{gap:8px}
+    .menu-lateral{width:136px;padding:10px 8px}
+    .menu-lateral button{padding:10px 9px;font-size:.74rem}
+  }
 
   button{
     border:none;border-radius:6px;padding:8px 14px;
@@ -323,7 +345,8 @@
 
   @media print{
     body{background:#fff;padding:0}
-    header .acoes,.rodape,td .btn-excluir,thead th:last-child,tbody td:last-child{display:none}
+    .menu-lateral,.rodape,td .btn-excluir,thead th:last-child,tbody td:last-child{display:none}
+    .layout{display:block}
     .filtros{grid-template-columns:repeat(6,1fr)}
     td input,td select{border:none;background:none}
   }
@@ -356,14 +379,9 @@
 </div>
 
 <div class="container" id="appPrincipal" style="display:none">
+<div class="layout">
 
-  <header>
-    <h1>
-      <img src="logo-full.png" alt="Postos Full" class="logo-app">
-      <span>Controle de Margens <span id="statusSalvo" aria-live="polite"></span></span>
-      <span class="usuario-logado" id="usuarioLogado"></span>
-    </h1>
-    <div class="acoes">
+  <nav class="menu-lateral" aria-label="Menu principal">
       <button class="btn-claro" id="btnRegistros" onclick="alternarRegistros()">📋 Lançamentos</button>
       <button class="btn-claro" onclick="alternarDash()">📈 Dashboard</button>
       <button class="btn-claro" onclick="exportarPDF()">📄 Exportar PDF</button>
@@ -371,7 +389,16 @@
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
       <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()">👥 Usuários</button>
       <button class="btn-dourado" onclick="sair()">Sair</button>
-    </div>
+  </nav>
+
+  <div class="principal">
+
+  <header>
+    <h1>
+      <img src="logo-full.png" alt="Postos Full" class="logo-app">
+      <span>Controle de Margens <span id="statusSalvo" aria-live="polite"></span></span>
+      <span class="usuario-logado" id="usuarioLogado"></span>
+    </h1>
   </header>
 
   <div class="filtros">
@@ -465,6 +492,8 @@
   </div>
   </div>
 
+  </div><!-- /principal -->
+</div><!-- /layout -->
 </div>
 
 <script>
