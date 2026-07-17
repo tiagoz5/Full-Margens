@@ -202,6 +202,11 @@
   }
   .frete-padrao .nota{font-size:.75rem;color:var(--cinza);font-style:italic}
 
+  /* ---------- Painel de registros ---------- */
+  #painelRegistros{display:none}
+  #painelRegistros.aberto{display:block}
+  #btnRegistros.ativo{filter:brightness(1.15);box-shadow:0 0 0 2px rgba(255,255,255,.35) inset}
+
   /* ---------- Dashboard ---------- */
   .dash-controles{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
   .dash-controles label{
@@ -353,15 +358,13 @@
       <span class="usuario-logado" id="usuarioLogado"></span>
     </h1>
     <div class="acoes">
-      <button class="btn-claro" onclick="salvarJSON()">Salvar dados</button>
-      <button class="btn-claro" onclick="document.getElementById('arquivo').click()">Carregar dados</button>
       <button class="btn-claro" onclick="exportarPDF()">Exportar PDF</button>
       <button class="btn-claro" onclick="alternarDash()">📈 Dashboard</button>
-      <button class="btn-dourado" onclick="window.print()">Imprimir</button>
+      <button class="btn-dourado" id="btnRegistros" onclick="alternarRegistros()">📋 Registros</button>
+      <button class="btn-claro" onclick="window.print()">Imprimir</button>
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
       <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()">👥 Usuários</button>
       <button class="btn-dourado" onclick="sair()">Sair</button>
-      <input type="file" id="arquivo" accept=".json" hidden onchange="carregarJSON(event)">
     </div>
   </header>
 
@@ -438,6 +441,7 @@
     </div>
   </div>
 
+  <div id="painelRegistros" class="aberto">
   <div class="tabela-wrap">
     <table>
       <thead>
@@ -455,8 +459,9 @@
   </div>
 
   <div class="rodape">
-    <span class="dica">Edite qualquer célula diretamente — tudo é salvo automaticamente neste dispositivo. Em ⚙ Configurações você gerencia postos, distribuidoras e o frete padrão. Use "Salvar dados" (.json) como cópia de segurança.</span>
+    <span class="dica">Edite qualquer célula diretamente — tudo é salvo automaticamente neste dispositivo. Em ⚙ Configurações você gerencia postos, distribuidoras e o frete padrão. Use "Exportar PDF" para gerar relatórios.</span>
     <button class="btn-verde" onclick="novaLinha()">+ Adicionar registro</button>
+  </div>
   </div>
 
 </div>
@@ -848,36 +853,13 @@ function excluir(i){
 }
 
 /* ================== Salvar / Carregar / Exportar ================== */
-function baixar(nome, conteudo, tipo){
-  const blob = new Blob([conteudo], {type:tipo});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = nome;
-  a.click();
-  URL.revokeObjectURL(a.href);
+function alternarRegistros(){
+  document.getElementById("painelRegistros").classList.toggle("aberto");
+  atualizarBotaoRegistros();
 }
-
-function salvarJSON(){
-  baixar("margens_combustiveis.json", JSON.stringify(registros, null, 2), "application/json");
-}
-
-function carregarJSON(ev){
-  const f = ev.target.files[0];
-  if(!f) return;
-  const leitor = new FileReader();
-  leitor.onload = e => {
-    try{
-      const dados = JSON.parse(e.target.result);
-      if(!Array.isArray(dados)) throw new Error();
-      registros = dados;
-      persistir();
-      render();
-    }catch{
-      alert("O arquivo escolhido não é um .json válido gerado por esta ferramenta.");
-    }
-  };
-  leitor.readAsText(f);
-  ev.target.value = "";
+function atualizarBotaoRegistros(){
+  const aberto = document.getElementById("painelRegistros").classList.contains("aberto");
+  document.getElementById("btnRegistros").classList.toggle("ativo", aberto);
 }
 
 /* ================== Dashboard: evolução do preço de compra ================== */
