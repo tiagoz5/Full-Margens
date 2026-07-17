@@ -227,7 +227,11 @@
     padding:11px 12px;border:1px solid var(--borda);border-radius:8px;
     font-size:1rem;text-align:right;font-variant-numeric:tabular-nums;
   }
-  .sim-campo input:focus{outline:2px solid var(--verde);outline-offset:-1px}
+  .sim-campo select{
+    padding:11px 12px;border:1px solid var(--borda);border-radius:8px;
+    font-size:1rem;background:#fff;
+  }
+  .sim-campo input:focus,.sim-campo select:focus{outline:2px solid var(--verde);outline-offset:-1px}
   .sim-resultados{display:flex;gap:16px;flex-wrap:wrap;margin-top:18px}
   .sim-bloco{
     flex:1;min-width:220px;background:#F7F7F7;border:1px solid var(--borda);
@@ -472,6 +476,10 @@
       <h2>Simular margens</h2>
       <p class="nota-dash">Preencha os valores para calcular a margem na hora, sem precisar criar um lançamento. Ideal para testar cenários de preço.</p>
       <div class="sim-campos">
+        <div class="sim-campo">
+          <label for="simCombustivel">Combustível</label>
+          <select id="simCombustivel"></select>
+        </div>
         <div class="sim-campo">
           <label for="simCusto">Preço de compra (R$)</label>
           <input type="number" id="simCusto" inputmode="decimal" step="0.001" placeholder="0,00" oninput="calcularSimulacao()">
@@ -1239,7 +1247,21 @@ function alternarSimular(){
   const aberto = abrirPainelExclusivo("painelSimular");
   const bs = document.getElementById("btnSimular");
   if (bs) bs.classList.toggle("ativo", aberto);
-  if (aberto) calcularSimulacao();
+  if (aberto) prepararSimulador();
+}
+
+function prepararSimulador(){
+  // Preenche o seletor de combustível com as mesmas opções dos lançamentos
+  const sel = document.getElementById("simCombustivel");
+  const atual = sel.value;
+  const opcoes = opcoesDe("combustivel");
+  sel.innerHTML = opcoes.map(c => `<option${c===atual?" selected":""}>${c}</option>`).join("");
+  // Frete já vem preenchido com o custo padrão (mas continua editável)
+  const fCampo = document.getElementById("simFrete");
+  if (!fCampo.value && isFinite(fretePadrao) && fretePadrao > 0){
+    fCampo.value = fretePadrao;   // campo type=number usa ponto decimal
+  }
+  calcularSimulacao();
 }
 
 function calcularSimulacao(){
@@ -1257,18 +1279,13 @@ function calcularSimulacao(){
     return;
   }
 
-  // Mesma fórmula dos lançamentos
+  // Mesma fórmula dos lançamentos (margem COM frete)
   const m = margens({ custo, frete, venda });
   const cls = v => v < 0 ? " neg" : "";
   const rs = v => isFinite(v) ? "R$ " + fmtBR(v, 3) : "—";
   const pc = v => isFinite(v) ? fmtBR(v, 2) + "%" : "—";
 
   alvo.innerHTML = `
-    <div class="sim-bloco">
-      <h4>Margem sem frete</h4>
-      <div class="sim-linha"><span class="rot">Em reais</span><span class="val${cls(m.sfR)}">${rs(m.sfR)}</span></div>
-      <div class="sim-linha"><span class="rot">Em percentual</span><span class="val${cls(m.sfP)}">${pc(m.sfP)}</span></div>
-    </div>
     <div class="sim-bloco">
       <h4>Margem com frete</h4>
       <div class="sim-linha"><span class="rot">Em reais</span><span class="val${cls(m.cfR)}">${rs(m.cfR)}</span></div>
