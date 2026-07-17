@@ -1224,13 +1224,19 @@ function dadosDashboard(comb){
 function resumoHTML(pontos){
   const primeiro = pontos[0].custo, ultimo = pontos[pontos.length-1].custo;
   const variacao = ultimo - primeiro;
-  const centavos = Math.round(Math.abs(variacao) * 100);
   const classe = variacao > 0.0001 ? "sobe" : variacao < -0.0001 ? "desce" : "";
   const seta = variacao > 0.0001 ? "▲ subiu" : variacao < -0.0001 ? "▼ caiu" : "estável";
+  const centavos = Math.round(Math.abs(variacao) * 100);
+  let valorVar = "";
+  if (centavos > 0){
+    valorVar = centavos >= 100
+      ? " R$ " + fmtBR(centavos / 100, 2)                       // 100¢ ou mais → R$ 1,00
+      : " " + centavos + " centavo" + (centavos > 1 ? "s" : ""); // até 99¢ → em centavos
+  }
   return `
     <div class="cartao-kpi"><span>Último custo</span><b>R$ ${fmtBR(ultimo, 3)}</b></div>
     <div class="cartao-kpi"><span>Variação no período</span>
-      <b class="${classe}">${seta}${centavos ? " " + centavos + " centavo" + (centavos>1?"s":"") : ""}</b></div>
+      <b class="${classe}">${seta}${valorVar}</b></div>
     <div class="cartao-kpi"><span>Menor / Maior</span>
       <b>R$ ${fmtBR(Math.min(...pontos.map(p=>p.custo)),3)} / R$ ${fmtBR(Math.max(...pontos.map(p=>p.custo)),3)}</b></div>`;
 }
