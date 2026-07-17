@@ -3,28 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Controle de Margens — Combustíveis</title>
+<title>Postos Full — Controle de Margens</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2E5B3E">
+<meta name="theme-color" content="#1E1E1E">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <style>
   :root{
-    --verde:#2E5B3E;
-    --verde-escuro:#234A31;
-    --verde-claro:#EAF2EC;
-    --dourado:#C9A227;
-    --cinza:#6B7268;
-    --borda:#D4DCD4;
-    --vermelho:#B4432F;
-    --fundo:#F6F8F5;
+    /* Identidade visual Postos Full */
+    --verde:#FF6401;          /* laranja da marca (cor primária) */
+    --verde-escuro:#1E1E1E;   /* grafite */
+    --verde-claro:#FFF0E6;    /* laranja bem claro (fundos suaves) */
+    --dourado:#FF6401;        /* ações de destaque = laranja */
+    --grafite:#1E1E1E;
+    --grafite-2:#3A3A3A;
+    --cinza:#6E6E6E;
+    --borda:#DFDFDF;
+    --vermelho:#C62828;
+    --fundo:#F4F4F4;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
-    font-family:"Segoe UI",Arial,sans-serif;
+    font-family:"Poppins","Segoe UI",Arial,sans-serif;
     background:var(--fundo);
     color:#22301F;
     padding:24px 16px 60px;
@@ -32,19 +38,28 @@
   .container{max-width:1280px;margin:0 auto}
 
   header{
-    background:var(--verde);
+    background:
+      radial-gradient(circle at 12% 20%, rgba(255,100,1,.16) 0 2px, transparent 3px),
+      linear-gradient(120deg,#161616 0%,var(--grafite-2) 100%);
+    background-size:22px 22px, cover;
     color:#fff;
     border-radius:10px 10px 0 0;
-    padding:18px 24px;
+    padding:16px 24px;
     display:flex;
     justify-content:space-between;
     align-items:center;
     flex-wrap:wrap;
     gap:10px;
-    border-bottom:3px solid var(--dourado);
+    border-bottom:3px solid var(--verde);
   }
-  header h1{font-size:1.25rem;font-weight:600;letter-spacing:.3px}
-  #statusSalvo{font-size:.7rem;font-weight:400;color:#D8E6DC;margin-left:10px;opacity:0;transition:opacity .4s}
+  header h1{
+    font-family:"Oswald","Poppins",sans-serif;
+    font-size:1.1rem;font-weight:500;letter-spacing:.8px;
+    text-transform:uppercase;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  header .logo-app{height:36px;width:auto;display:block}
+  #statusSalvo{font-size:.68rem;font-weight:400;font-family:"Poppins",sans-serif;text-transform:none;letter-spacing:0;color:#FFC9A3;margin-left:10px;opacity:0;transition:opacity .4s}
   header .acoes{display:flex;gap:8px;flex-wrap:wrap}
 
   button{
@@ -53,9 +68,9 @@
     transition:filter .15s;
   }
   button:hover{filter:brightness(1.1)}
-  button:focus-visible{outline:2px solid var(--dourado);outline-offset:2px}
-  .btn-claro{background:#fff;color:var(--verde)}
-  .btn-dourado{background:var(--dourado);color:#2B2410}
+  button:focus-visible{outline:2px solid var(--verde);outline-offset:2px}
+  .btn-claro{background:#fff;color:var(--grafite)}
+  .btn-dourado{background:var(--verde);color:#fff}
   .btn-verde{background:var(--verde);color:#fff}
   .btn-excluir{
     background:none;color:var(--vermelho);
@@ -73,7 +88,8 @@
     gap:12px;
   }
   .filtro label{
-    display:block;font-size:.7rem;font-weight:700;
+    display:block;font-size:.72rem;font-weight:600;
+    font-family:"Oswald","Poppins",sans-serif;
     text-transform:uppercase;letter-spacing:.5px;
     color:var(--verde);margin-bottom:4px;
   }
@@ -90,8 +106,9 @@
   }
   table{width:100%;border-collapse:collapse;min-width:1100px}
   thead th{
-    background:var(--verde);color:#fff;
-    font-size:.72rem;font-weight:700;text-transform:uppercase;
+    background:var(--grafite);color:#fff;
+    font-family:"Oswald","Poppins",sans-serif;
+    font-size:.74rem;font-weight:500;text-transform:uppercase;
     letter-spacing:.4px;padding:10px 8px;text-align:center;
     position:sticky;top:0;
   }
@@ -116,13 +133,13 @@
 
   td.calc{
     font-weight:600;font-variant-numeric:tabular-nums;
-    color:var(--verde-escuro);white-space:nowrap;
+    color:var(--grafite);white-space:nowrap;
   }
   td.calc.neg{color:var(--vermelho)}
 
   tfoot td{
-    background:var(--verde-claro);font-weight:700;font-size:.82rem;
-    padding:10px 8px;color:var(--verde-escuro);
+    background:#F7F7F7;font-weight:700;font-size:.82rem;
+    padding:10px 8px;color:var(--grafite);
     border-top:2px solid var(--verde);white-space:nowrap;
   }
 
@@ -144,7 +161,8 @@
   }
   .config.aberto{display:block}
   .config h2{
-    font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;
+    font-family:"Oswald","Poppins",sans-serif;
+    font-size:.85rem;text-transform:uppercase;letter-spacing:.8px;
     color:var(--verde);margin-bottom:8px;
   }
   .config .grupo{margin-bottom:18px}
@@ -179,8 +197,19 @@
   /* ---------- Tela de login ---------- */
   #telaLogin{
     position:fixed;inset:0;z-index:1000;
-    background:linear-gradient(160deg,var(--verde) 0%,var(--verde-escuro) 100%);
+    background:
+      radial-gradient(circle at 0% 0%, rgba(255,100,1,.14) 0 2.5px, transparent 3.5px),
+      linear-gradient(120deg,#141414 0%,#3A3A3A 100%);
+    background-size:26px 26px, cover;
     display:flex;align-items:center;justify-content:center;padding:20px;
+    overflow:hidden;
+  }
+  #telaLogin::after{
+    content:"";position:absolute;right:-120px;bottom:-140px;
+    width:420px;height:420px;border-radius:50%;
+    border:2px solid var(--verde);opacity:.85;
+    box-shadow:0 0 0 60px rgba(255,100,1,.06);
+    pointer-events:none;
   }
   .cartao-login{
     background:#fff;border-radius:14px;padding:32px 28px;
@@ -189,15 +218,22 @@
   .cartao-login .marca{
     text-align:center;margin-bottom:22px;
   }
-  .cartao-login .marca .icone{
-    font-size:2.2rem;display:block;margin-bottom:6px;
+  .cartao-login .marca{
+    background:linear-gradient(120deg,#161616,#333);
+    margin:-32px -28px 22px;padding:26px 28px 22px;
+    border-radius:14px 14px 0 0;
+    border-bottom:3px solid var(--verde);
   }
+  .logo-login{width:78%;max-width:250px;height:auto;display:block;margin:0 auto 10px}
   .cartao-login .marca h1{
-    font-size:1.05rem;color:var(--verde);font-weight:700;
+    font-family:"Oswald","Poppins",sans-serif;
+    font-size:.9rem;color:#fff;font-weight:500;
+    letter-spacing:2px;text-transform:uppercase;text-align:center;
   }
   .cartao-login label{
-    display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;
-    letter-spacing:.5px;color:var(--verde);margin:12px 0 4px;
+    display:block;font-size:.72rem;font-weight:600;text-transform:uppercase;
+    font-family:"Oswald","Poppins",sans-serif;
+    letter-spacing:.8px;color:var(--grafite);margin:12px 0 4px;
   }
   .cartao-login input{
     width:100%;padding:11px 12px;border:1px solid var(--borda);
@@ -221,7 +257,8 @@
   .msg-login.ok{display:block;background:var(--verde-claro);color:var(--verde-escuro)}
 
   .usuario-logado{
-    font-size:.72rem;color:#D8E6DC;font-weight:400;
+    font-size:.68rem;color:#BDBDBD;font-weight:400;
+    font-family:"Poppins",sans-serif;text-transform:none;letter-spacing:0;
     display:flex;align-items:center;gap:8px;width:100%;
   }
 
@@ -250,8 +287,8 @@
 <div id="telaLogin">
   <div class="cartao-login">
     <div class="marca">
-      <span class="icone">⛽</span>
-      <h1>Controle de Margens — Combustíveis</h1>
+      <img src="logo-full.png" alt="Postos Full" class="logo-login">
+      <h1>Controle de Margens</h1>
     </div>
     <div id="formEntrar">
       <label for="loginEmail">E-mail</label>
@@ -274,7 +311,9 @@
 <div class="container" id="appPrincipal" style="display:none">
 
   <header>
-    <h1>Controle de Margens — Combustíveis <span id="statusSalvo" aria-live="polite"></span>
+    <h1>
+      <img src="logo-full.png" alt="Postos Full" class="logo-app">
+      <span>Controle de Margens <span id="statusSalvo" aria-live="polite"></span></span>
       <span class="usuario-logado" id="usuarioLogado"></span>
     </h1>
     <div class="acoes">
