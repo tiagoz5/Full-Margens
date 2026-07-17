@@ -132,8 +132,12 @@
     box-shadow:0 0 0 2px rgba(46,91,62,.15);
   }
   td input.num{text-align:right}
-  /* Coluna Distribuidora: um pouco mais larga para o nome não encostar na setinha */
-  tbody td:nth-child(12) select{min-width:122px;padding-right:20px}
+  /* Colunas de seleção: largura mínima + folga para o texto não encostar na setinha */
+  tbody td select{padding-right:20px}
+  tbody td:nth-child(2) select{min-width:102px}   /* Posto */
+  tbody td:nth-child(3) select{min-width:96px}    /* Forma */
+  tbody td:nth-child(4) select{min-width:156px}   /* Combustível */
+  tbody td:nth-child(12) select{min-width:122px}  /* Distribuidora */
 
   td.calc{
     font-weight:600;font-variant-numeric:tabular-nums;
