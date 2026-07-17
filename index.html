@@ -887,6 +887,9 @@ function iniciarSync(){
       } catch {}
       renderConfig();
       render();
+    } else {
+      // Config ainda não existe na nuvem: migra as listas locais (postos, distribuidoras, frete)
+      docConfig.set({ listas, fretePadrao }).catch(()=>{});
     }
   }, ()=>{});
 
