@@ -213,11 +213,17 @@
     font-family:"Oswald","Poppins",sans-serif;font-size:.78rem;
     text-transform:uppercase;letter-spacing:.6px;color:var(--grafite);
   }
-  .dash-controles select{
+  .dash-controles input[type=date]{
     padding:8px 12px;border:1px solid var(--borda);border-radius:6px;
-    font-size:.9rem;background:#fff;min-width:190px;
+    font-size:.9rem;background:#fff;
   }
-  .dash-controles select:focus{outline:2px solid var(--verde);outline-offset:-1px}
+  .dash-controles input[type=date]:focus{outline:2px solid var(--verde);outline-offset:-1px}
+  .bloco-comb{margin-bottom:26px}
+  .bloco-comb h3{
+    font-family:"Oswald","Poppins",sans-serif;font-size:.95rem;
+    text-transform:uppercase;letter-spacing:.8px;color:var(--grafite);
+    border-left:4px solid var(--verde);padding-left:10px;margin-bottom:10px;
+  }
   .resumo-dash{
     display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;
     font-size:.85rem;
@@ -381,12 +387,13 @@
     <div class="grupo">
       <h2>Evolução do preço de compra</h2>
       <div class="dash-controles">
-        <label for="dashComb">Combustível:</label>
-        <select id="dashComb" onchange="renderDashboard()"></select>
+        <label for="dashIni">Data inicial:</label>
+        <input type="date" id="dashIni" onchange="renderDashboard()">
+        <label for="dashFim">Data final:</label>
+        <input type="date" id="dashFim" onchange="renderDashboard()">
       </div>
-      <div id="resumoDash" class="resumo-dash"></div>
-      <div id="graficoDash" class="grafico-dash"></div>
-      <p class="nota-dash">Cada ponto é a média do preço de custo lançado na data (respeitando os filtros de data e posto acima). Os valores em vermelho/verde mostram quantos centavos o preço subiu ou caiu em relação ao lançamento anterior.</p>
+      <div id="conteudoDash"></div>
+      <p class="nota-dash">Um gráfico para cada combustível com lançamentos no período (datas ajustáveis acima; o período começa pré-preenchido do dia 1º do mês atual até hoje). Cada ponto é a média do preço de custo lançado na data, respeitando o filtro de Posto da tela. Os valores em vermelho/verde mostram quantos centavos o preço subiu ou caiu em relação ao lançamento anterior.</p>
     </div>
   </div>
 
@@ -869,22 +876,21 @@ function alternarDash(){
   if (p.classList.contains("aberto")) renderDashboard();
 }
 
-function preencherDashComb(){
-  const sel = document.getElementById("dashComb");
-  if (!sel) return;
-  const atual = sel.value;
-  const opcoes = opcoesDe("combustivel");
-  sel.innerHTML = opcoes.map(c => `<option${c===atual?" selected":""}>${c}</option>`).join("");
-  if (!opcoes.includes(atual) && opcoes.length) sel.value = opcoes[0];
-}
-
 const fmtBR = (v, casas=2) => v.toLocaleString("pt-BR",{minimumFractionDigits:casas,maximumFractionDigits:casas});
 
-function dadosDashboard(){
-  const comb = document.getElementById("dashComb").value;
-  // Respeita filtros de data e posto (ignora o filtro de combustível da tabela)
-  const dIni = document.getElementById("fDataIni").value;
-  const dFim = document.getElementById("fDataFim").value;
+function inicializarDatasDash(){
+  const ini = document.getElementById("dashIni");
+  const fim = document.getElementById("dashFim");
+  if (ini.value || fim.value) return;   // usuário já mexeu — não sobrescrever
+  const hoje = new Date();
+  const ano = hoje.getFullYear(), mes = String(hoje.getMonth()+1).padStart(2,"0");
+  ini.value = `${ano}-${mes}-01`;                                  // 1º dia do mês vigente
+  fim.value = `${ano}-${mes}-${String(hoje.getDate()).padStart(2,"0")}`; // hoje
+}
+
+function dadosDashboard(comb){
+  const dIni = document.getElementById("dashIni").value;
+  const dFim = document.getElementById("dashFim").value;
   const posto = document.getElementById("fPosto").value;
   const porData = {};
   registros.forEach(r => {
@@ -901,31 +907,21 @@ function dadosDashboard(){
   }));
 }
 
-function renderDashboard(){
-  preencherDashComb();
-  const pontos = dadosDashboard();
-  const alvo = document.getElementById("graficoDash");
-  const resumo = document.getElementById("resumoDash");
-  if (pontos.length === 0){
-    alvo.innerHTML = '<div class="dash-vazio">Nenhum lançamento deste combustível no período selecionado.</div>';
-    resumo.innerHTML = "";
-    return;
-  }
-
-  // ----- Resumo (KPIs) -----
+function resumoHTML(pontos){
   const primeiro = pontos[0].custo, ultimo = pontos[pontos.length-1].custo;
   const variacao = ultimo - primeiro;
   const centavos = Math.round(Math.abs(variacao) * 100);
   const classe = variacao > 0.0001 ? "sobe" : variacao < -0.0001 ? "desce" : "";
   const seta = variacao > 0.0001 ? "▲ subiu" : variacao < -0.0001 ? "▼ caiu" : "estável";
-  resumo.innerHTML = `
+  return `
     <div class="cartao-kpi"><span>Último custo</span><b>R$ ${fmtBR(ultimo, 3)}</b></div>
     <div class="cartao-kpi"><span>Variação no período</span>
       <b class="${classe}">${seta}${centavos ? " " + centavos + " centavo" + (centavos>1?"s":"") : ""}</b></div>
     <div class="cartao-kpi"><span>Menor / Maior</span>
       <b>R$ ${fmtBR(Math.min(...pontos.map(p=>p.custo)),3)} / R$ ${fmtBR(Math.max(...pontos.map(p=>p.custo)),3)}</b></div>`;
+}
 
-  // ----- Gráfico de linha (SVG) -----
+function graficoSVG(pontos){
   const H = 300, mT = 24, mB = 46, mL = 62, mR = 24;
   const passoX = Math.max(70, 640 / Math.max(pontos.length-1, 1));
   const W = Math.max(680, mL + mR + passoX * (pontos.length-1));
@@ -937,16 +933,13 @@ function renderDashboard(){
   const Y = v => mT + (H - mT - mB) * (1 - (v - vMin) / (vMax - vMin));
 
   let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" font-family="Poppins,Arial,sans-serif">`;
-  // Linhas de grade horizontais + eixo Y
   for (let g = 0; g <= 4; g++){
     const v = vMin + (vMax - vMin) * g / 4, y = Y(v);
     s += `<line x1="${mL}" y1="${y}" x2="${W-mR}" y2="${y}" stroke="#EAEAEA"/>`;
     s += `<text x="${mL-8}" y="${y+4}" text-anchor="end" font-size="11" fill="#6E6E6E">${fmtBR(v,2)}</text>`;
   }
-  // Linha do preço
   const caminho = pontos.map((p,i)=>`${i?"L":"M"}${X(i)},${Y(p.custo)}`).join(" ");
   s += `<path d="${caminho}" fill="none" stroke="#FF6401" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
-  // Pontos, valores, datas e variações
   pontos.forEach((p,i)=>{
     const x = X(i), y = Y(p.custo);
     s += `<circle cx="${x}" cy="${y}" r="5" fill="#FF6401" stroke="#fff" stroke-width="2"/>`;
@@ -963,8 +956,23 @@ function renderDashboard(){
       }
     }
   });
-  s += "</svg>";
-  alvo.innerHTML = s;
+  return s + "</svg>";
+}
+
+function renderDashboard(){
+  inicializarDatasDash();
+  const alvo = document.getElementById("conteudoDash");
+  let saida = "";
+  opcoesDe("combustivel").forEach(comb => {
+    const pontos = dadosDashboard(comb);
+    if (!pontos.length) return;
+    saida += `<div class="bloco-comb">
+      <h3>${comb}</h3>
+      <div class="resumo-dash">${resumoHTML(pontos)}</div>
+      <div class="grafico-dash">${graficoSVG(pontos)}</div>
+    </div>`;
+  });
+  alvo.innerHTML = saida || '<div class="dash-vazio">Nenhum lançamento no período selecionado.</div>';
 }
 
 /* ================== Exportar PDF ================== */
