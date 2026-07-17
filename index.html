@@ -205,7 +205,7 @@
   /* ---------- Painel de registros ---------- */
   #painelRegistros{display:none}
   #painelRegistros.aberto{display:block}
-  #btnRegistros.ativo{filter:brightness(1.15);box-shadow:0 0 0 2px rgba(255,255,255,.35) inset}
+  #btnRegistros.ativo{box-shadow:0 0 0 2px var(--verde) inset;color:var(--verde)}
 
   /* ---------- Dashboard ---------- */
   .dash-controles{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
@@ -358,9 +358,9 @@
       <span class="usuario-logado" id="usuarioLogado"></span>
     </h1>
     <div class="acoes">
+      <button class="btn-claro" id="btnRegistros" onclick="alternarRegistros()">📋 Lançamentos</button>
       <button class="btn-claro" onclick="exportarPDF()">Exportar PDF</button>
       <button class="btn-claro" onclick="alternarDash()">📈 Dashboard</button>
-      <button class="btn-dourado" id="btnRegistros" onclick="alternarRegistros()">📋 Registros</button>
       <button class="btn-claro" onclick="window.print()">Imprimir</button>
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
       <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()">👥 Usuários</button>
