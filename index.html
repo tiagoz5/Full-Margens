@@ -503,8 +503,7 @@
       <div class="sim-resultados" id="simResultados"></div>
       <div class="sim-acoes" id="simAcoes" style="display:none">
         <button class="btn-verde" onclick="compartilharSimulacao()">📲 Compartilhar como imagem</button>
-        <button class="btn-claro" onclick="compartilharSimulacaoPDF()">📄 Compartilhar como PDF</button>
-        <span class="sim-dica-share">Gera uma imagem ou PDF pronto para enviar no WhatsApp e outros apps.</span>
+        <span class="sim-dica-share">Gera uma imagem pronta para enviar no WhatsApp e outros apps.</span>
       </div>
       <canvas id="simCanvas" width="1080" height="1920" style="display:none"></canvas>
     </div>
@@ -1449,35 +1448,6 @@ async function compartilharSimulacao(){
     }
   } catch(e){ /* usuário cancelou ou erro — silencioso */ }
   btn.textContent = txtOrig; btn.disabled = false;
-}
-
-async function compartilharSimulacaoPDF(){
-  const btns = document.querySelectorAll("#simAcoes button");
-  const btnPdf = btns[1];
-  const txtOrig = btnPdf.textContent;
-  btnPdf.textContent = "Gerando PDF…"; btnPdf.disabled = true;
-  try {
-    const blobImg = await desenharImagemSimulacao();
-    // Converter o blob da imagem em dataURL para embutir no PDF
-    const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blobImg); });
-    const { jsPDF } = window.jspdf;
-    // A4 retrato; a imagem é 1080x1920 (proporção 9:16) — encaixa centralizada
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const pw = doc.internal.pageSize.getWidth();   // 210mm
-    const ph = doc.internal.pageSize.getHeight();  // 297mm
-    const imgRatio = 1080/1920;
-    let iw = pw - 20, ih = iw / imgRatio;
-    if (ih > ph - 20){ ih = ph - 20; iw = ih * imgRatio; }
-    doc.addImage(dataUrl, "PNG", (pw-iw)/2, (ph-ih)/2, iw, ih);
-    const blobPdf = doc.output("blob");
-    const arquivo = new File([blobPdf], "simulacao-margem-postos-full.pdf", { type: "application/pdf" });
-    if (navigator.canShare && navigator.canShare({ files: [arquivo] })){
-      await navigator.share({ files: [arquivo], title: "Simulação de Margem — Postos Full" });
-    } else {
-      doc.save("simulacao-margem-postos-full.pdf");
-    }
-  } catch(e){ /* cancelado ou erro — silencioso */ }
-  btnPdf.textContent = txtOrig; btnPdf.disabled = false;
 }
 
 function alternarDash(){
