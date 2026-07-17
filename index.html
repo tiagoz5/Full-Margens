@@ -246,6 +246,8 @@
   .sim-linha .val{font-size:1.35rem;font-weight:700;color:var(--grafite);font-variant-numeric:tabular-nums}
   .sim-linha .val.neg{color:var(--vermelho)}
   .sim-vazio{padding:18px;text-align:center;color:var(--cinza);font-style:italic}
+  .sim-acoes{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}
+  .sim-dica-share{font-size:.76rem;color:var(--cinza)}
 
   /* ---------- Histórico / Sincronização ---------- */
   .barra-sync{
@@ -494,6 +496,11 @@
         </div>
       </div>
       <div class="sim-resultados" id="simResultados"></div>
+      <div class="sim-acoes" id="simAcoes" style="display:none">
+        <button class="btn-verde" onclick="compartilharSimulacao()">📲 Compartilhar como imagem</button>
+        <span class="sim-dica-share">Gera uma imagem pronta para enviar no WhatsApp e outros apps.</span>
+      </div>
+      <canvas id="simCanvas" width="1080" height="1920" style="display:none"></canvas>
     </div>
   </div>
 
@@ -1274,10 +1281,13 @@ function calcularSimulacao(){
   const venda = num("simVenda");
   const alvo = document.getElementById("simResultados");
 
+  const acoes = document.getElementById("simAcoes");
   if (custo <= 0 && venda <= 0 && frete <= 0){
     alvo.innerHTML = '<div class="sim-vazio">Preencha os valores acima para ver a margem.</div>';
+    if (acoes) acoes.style.display = "none";
     return;
   }
+  if (acoes) acoes.style.display = (custo > 0 && venda > 0) ? "flex" : "none";
 
   // Mesma fórmula dos lançamentos (margem COM frete)
   const m = margens({ custo, frete, venda });
@@ -1291,6 +1301,118 @@ function calcularSimulacao(){
       <div class="sim-linha"><span class="rot">Em reais</span><span class="val${cls(m.cfR)}">${rs(m.cfR)}</span></div>
       <div class="sim-linha"><span class="rot">Em percentual</span><span class="val${cls(m.cfP)}">${pc(m.cfP)}</span></div>
     </div>`;
+}
+
+// Desenha a imagem da simulação (formato vertical 1080x1920, ideal para WhatsApp)
+function desenharImagemSimulacao(){
+  return new Promise((resolve) => {
+    const num = id => { const v = parseFloat((document.getElementById(id).value||"").replace(",",".")); return isFinite(v)?v:0; };
+    const custo = num("simCusto"), frete = num("simFrete"), venda = num("simVenda");
+    const combustivel = document.getElementById("simCombustivel").value || "";
+    const m = margens({ custo, frete, venda });
+
+    const cv = document.getElementById("simCanvas");
+    const W = cv.width, H = cv.height;
+    const ctx = cv.getContext("2d");
+    const laranja = "#FF6401", grafite = "#1E1E1E";
+
+    // Fundo grafite
+    ctx.fillStyle = grafite; ctx.fillRect(0, 0, W, H);
+    // Diagonal laranja no rodapé (identidade da marca)
+    ctx.fillStyle = laranja;
+    ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(W, H); ctx.lineTo(W, H-360); ctx.closePath(); ctx.fill();
+    // Padrão de pontos no topo
+    ctx.fillStyle = "rgba(255,100,1,0.13)";
+    for (let i=0;i<7;i++) for (let j=0;j<5;j++){ ctx.beginPath(); ctx.arc(90+i*90, 90+j*90, 7, 0, 7); ctx.fill(); }
+
+    const fmt = (v, c=2) => v.toLocaleString("pt-BR",{minimumFractionDigits:c,maximumFractionDigits:c});
+    const centro = W/2;
+
+    function desenhar(){
+      // Título
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff";
+      ctx.font = "600 58px Oswald, Arial, sans-serif";
+      ctx.fillText("SIMULAÇÃO DE MARGEM", centro, 430);
+      if (combustivel){
+        ctx.fillStyle = laranja;
+        ctx.font = "600 46px Oswald, Arial, sans-serif";
+        ctx.fillText(combustivel.toUpperCase(), centro, 500);
+      }
+
+      // Caixa dos valores de entrada
+      const bx = 110, bw = W - 220, by = 580, bh = 430;
+      ctx.fillStyle = "#2A2A2A";
+      roundRect(ctx, bx, by, bw, bh, 28); ctx.fill();
+      const linha = (rot, val, y, cor="#fff") => {
+        ctx.textAlign = "left";  ctx.fillStyle = "#B8B8B8"; ctx.font = "400 40px Poppins, Arial, sans-serif";
+        ctx.fillText(rot, bx+50, y);
+        ctx.textAlign = "right"; ctx.fillStyle = cor; ctx.font = "600 46px Poppins, Arial, sans-serif";
+        ctx.fillText(val, bx+bw-50, y);
+      };
+      linha("Preço de compra", "R$ " + fmt(custo,3), by+110);
+      linha("Custo do frete",  "R$ " + fmt(frete,3), by+220);
+      linha("Preço de venda",  "R$ " + fmt(venda,3), by+330);
+
+      // Destaque da margem (com frete)
+      const negativo = m.cfR < 0;
+      const my = 1130, mw = W - 220, mh = 470;
+      ctx.fillStyle = negativo ? "#7A1F1F" : laranja;
+      roundRect(ctx, 110, my, mw, mh, 28); ctx.fill();
+      ctx.textAlign = "center";
+      ctx.fillStyle = negativo ? "#FFD9D9" : "#1E1E1E";
+      ctx.font = "600 44px Oswald, Arial, sans-serif";
+      ctx.fillText(negativo ? "PREJUÍZO NA MARGEM" : "MARGEM DE LUCRO", centro, my+95);
+      ctx.fillStyle = "#fff";
+      ctx.font = "700 150px Poppins, Arial, sans-serif";
+      ctx.fillText((isFinite(m.cfP)?fmt(m.cfP,2):"—") + "%", centro, my+270);
+      ctx.font = "600 66px Poppins, Arial, sans-serif";
+      ctx.fillText("R$ " + (isFinite(m.cfR)?fmt(m.cfR,3):"—"), centro, my+380);
+
+      // Rodapé
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.font = "600 40px Oswald, Arial, sans-serif";
+      const hoje = new Date().toLocaleDateString("pt-BR");
+      ctx.fillText("POSTOS FULL  •  " + hoje, centro, H-90);
+
+      cv.toBlob(b => resolve(b), "image/png");
+    }
+
+    function roundRect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+
+    // Carregar a logo e desenhar no topo
+    const logo = new Image();
+    logo.crossOrigin = "anonymous";
+    logo.onload = () => {
+      const lw = 560, lh = lw * (logo.height/logo.width);
+      ctx.drawImage(logo, centro - lw/2, 150, lw, lh);
+      desenhar();
+    };
+    logo.onerror = () => desenhar();  // se a logo falhar, gera sem ela
+    logo.src = "logo-full.png";
+  });
+}
+
+async function compartilharSimulacao(){
+  const btn = document.querySelector("#simAcoes button");
+  const txtOrig = btn.textContent;
+  btn.textContent = "Gerando imagem…"; btn.disabled = true;
+  try {
+    const blob = await desenharImagemSimulacao();
+    const arquivo = new File([blob], "simulacao-margem-postos-full.png", { type: "image/png" });
+    // Tenta o compartilhamento nativo (abre WhatsApp, etc.)
+    if (navigator.canShare && navigator.canShare({ files: [arquivo] })){
+      await navigator.share({ files: [arquivo], title: "Simulação de Margem — Postos Full" });
+    } else {
+      // Sem suporte a compartilhar arquivo: baixa a imagem
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "simulacao-margem-postos-full.png"; a.click();
+      URL.revokeObjectURL(url);
+    }
+  } catch(e){ /* usuário cancelou ou erro — silencioso */ }
+  btn.textContent = txtOrig; btn.disabled = false;
 }
 
 function alternarDash(){
