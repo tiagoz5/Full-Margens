@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Margens — Combustíveis</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2E5B3E">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{
+    --verde:#2E5B3E;
+    --verde-escuro:#234A31;
+    --verde-claro:#EAF2EC;
+    --dourado:#C9A227;
+    --cinza:#6B7268;
+    --borda:#D4DCD4;
+    --vermelho:#B4432F;
+    --fundo:#F6F8F5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Segoe UI",Arial,sans-serif;
+    background:var(--fundo);
+    color:#22301F;
+    padding:24px 16px 60px;
+  }
+  .container{max-width:1280px;margin:0 auto}
+
+  header{
+    background:var(--verde);
+    color:#fff;
+    border-radius:10px 10px 0 0;
+    padding:18px 24px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+    border-bottom:3px solid var(--dourado);
+  }
+  header h1{font-size:1.25rem;font-weight:600;letter-spacing:.3px}
+  #statusSalvo{font-size:.7rem;font-weight:400;color:#D8E6DC;margin-left:10px;opacity:0;transition:opacity .4s}
+  header .acoes{display:flex;gap:8px;flex-wrap:wrap}
+
+  button{
+    border:none;border-radius:6px;padding:8px 14px;
+    font-size:.85rem;font-weight:600;cursor:pointer;
+    transition:filter .15s;
+  }
+  button:hover{filter:brightness(1.1)}
+  button:focus-visible{outline:2px solid var(--dourado);outline-offset:2px}
+  .btn-claro{background:#fff;color:var(--verde)}
+  .btn-dourado{background:var(--dourado);color:#2B2410}
+  .btn-verde{background:var(--verde);color:#fff}
+  .btn-excluir{
+    background:none;color:var(--vermelho);
+    font-size:1rem;padding:4px 8px;
+  }
+
+  /* ---------- Painel de filtros ---------- */
+  .filtros{
+    background:#fff;
+    border:1px solid var(--borda);
+    border-top:none;
+    padding:16px 24px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:12px;
+  }
+  .filtro label{
+    display:block;font-size:.7rem;font-weight:700;
+    text-transform:uppercase;letter-spacing:.5px;
+    color:var(--verde);margin-bottom:4px;
+  }
+  .filtro input,.filtro select{
+    width:100%;padding:7px 9px;border:1px solid var(--borda);
+    border-radius:6px;font-size:.85rem;background:var(--verde-claro);
+  }
+  .filtro input:focus,.filtro select:focus{outline:2px solid var(--verde);outline-offset:-1px}
+
+  /* ---------- Tabela ---------- */
+  .tabela-wrap{
+    background:#fff;border:1px solid var(--borda);border-top:none;
+    border-radius:0 0 10px 10px;overflow-x:auto;
+  }
+  table{width:100%;border-collapse:collapse;min-width:1100px}
+  thead th{
+    background:var(--verde);color:#fff;
+    font-size:.72rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:.4px;padding:10px 8px;text-align:center;
+    position:sticky;top:0;
+  }
+  tbody td{
+    border-bottom:1px solid var(--borda);
+    padding:4px 6px;text-align:center;font-size:.85rem;
+  }
+  tbody tr:nth-child(even){background:#FAFCF9}
+  tbody tr:hover{background:var(--verde-claro)}
+
+  td input,td select{
+    width:100%;border:1px solid transparent;border-radius:4px;
+    padding:6px 6px;font-size:.85rem;background:transparent;
+    text-align:center;font-family:inherit;
+  }
+  td input:hover,td select:hover{border-color:var(--borda);background:#fff}
+  td input:focus,td select:focus{
+    outline:none;border-color:var(--verde);background:#fff;
+    box-shadow:0 0 0 2px rgba(46,91,62,.15);
+  }
+  td input.num{text-align:right}
+
+  td.calc{
+    font-weight:600;font-variant-numeric:tabular-nums;
+    color:var(--verde-escuro);white-space:nowrap;
+  }
+  td.calc.neg{color:var(--vermelho)}
+
+  tfoot td{
+    background:var(--verde-claro);font-weight:700;font-size:.82rem;
+    padding:10px 8px;color:var(--verde-escuro);
+    border-top:2px solid var(--verde);white-space:nowrap;
+  }
+
+  .rodape{
+    display:flex;justify-content:space-between;align-items:center;
+    flex-wrap:wrap;gap:10px;padding:14px 4px;
+  }
+  .rodape .dica{font-size:.78rem;color:var(--cinza);font-style:italic}
+
+  .vazio{
+    text-align:center;padding:30px;color:var(--cinza);font-style:italic;
+  }
+
+  @media print{
+    body{background:#fff;padding:0}
+    header .acoes,.rodape,td .btn-excluir,thead th:last-child,tbody td:last-child{display:none}
+    .filtros{grid-template-columns:repeat(6,1fr)}
+    td input,td select{border:none;background:none}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Controle de Margens — Combustíveis <span id="statusSalvo" aria-live="polite"></span></h1>
+    <div class="acoes">
+      <button class="btn-claro" onclick="salvarJSON()">Salvar dados</button>
+      <button class="btn-claro" onclick="document.getElementById('arquivo').click()">Carregar dados</button>
+      <button class="btn-claro" onclick="exportarCSV()">Exportar CSV</button>
+      <button class="btn-dourado" onclick="window.print()">Imprimir</button>
+      <input type="file" id="arquivo" accept=".json" hidden onchange="carregarJSON(event)">
+    </div>
+  </header>
+
+  <div class="filtros">
+    <div class="filtro"><label for="fDataIni">Data Inicial</label><input type="date" id="fDataIni" onchange="render()"></div>
+    <div class="filtro"><label for="fDataFim">Data Final</label><input type="date" id="fDataFim" onchange="render()"></div>
+    <div class="filtro"><label for="fPosto">Posto</label><select id="fPosto" onchange="render()"></select></div>
+    <div class="filtro"><label for="fForma">Forma</label><select id="fForma" onchange="render()"></select></div>
+    <div class="filtro"><label for="fComb">Combustível</label><select id="fComb" onchange="render()"></select></div>
+    <div class="filtro"><label for="fDist">Distribuidora</label><select id="fDist" onchange="render()"></select></div>
+  </div>
+
+  <div class="tabela-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th><th>Posto</th><th>Forma</th><th>Combustível</th>
+          <th>Preço de Custo</th><th>Preço Frete</th><th>Preço de Venda</th>
+          <th>Margem R$ S/Frete</th><th>Margem % S/Frete</th>
+          <th>Margem R$ C/Frete</th><th>Margem % C/Frete</th>
+          <th>Distribuidora</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="corpo"></tbody>
+      <tfoot id="rodapeTabela"></tfoot>
+    </table>
+  </div>
+
+  <div class="rodape">
+    <span class="dica">Edite qualquer célula diretamente — tudo é salvo automaticamente neste dispositivo. Use "Salvar dados" (.json) como cópia de segurança ou para passar os dados para outro aparelho.</span>
+    <button class="btn-verde" onclick="novaLinha()">+ Adicionar registro</button>
+  </div>
+
+</div>
+
+<script>
+/* ================== Opções das listas suspensas ==================
+   Edite livremente estes arrays para incluir seus postos,
+   formas de pagamento, combustíveis e distribuidoras.          */
+const OPCOES = {
+  posto:        ["Dutra","Matriz","Filial"],
+  forma:        ["Á Vista","Prazo"],
+  combustivel:  ["Diesel S-10","Diesel S-500","Gasolina Comum","Gasolina Aditivada","Etanol"],
+  distribuidora:["Petrobahia","Vibra","Ipiranga","Raízen"]
+};
+
+/* ================== Dados (com salvamento automático) ================== */
+const CHAVE = "margens_combustiveis_dados";
+
+let registros;
+try {
+  registros = JSON.parse(localStorage.getItem(CHAVE)) || null;
+} catch { registros = null; }
+
+if (!Array.isArray(registros) || !registros.length) {
+  registros = [
+    { data:"2026-07-16", posto:"Dutra", forma:"Á Vista", combustivel:"Diesel S-10",
+      custo:6.10, frete:0.20, venda:6.67, distribuidora:"Petrobahia" }
+  ];
+}
+
+let avisoSalvo = null;
+function persistir(){
+  try {
+    localStorage.setItem(CHAVE, JSON.stringify(registros));
+    const el = document.getElementById("statusSalvo");
+    if (el){
+      el.textContent = "✓ Salvo no dispositivo";
+      el.style.opacity = "1";
+      clearTimeout(avisoSalvo);
+      avisoSalvo = setTimeout(()=>{ el.style.opacity = "0"; }, 2000);
+    }
+  } catch {
+    /* armazenamento indisponível — os botões Salvar/Carregar continuam como reserva */
+  }
+}
+
+/* ================== Formatação BR ================== */
+const fmtRS  = v => isFinite(v) ? "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4}) : "—";
+const fmtPct = v => isFinite(v) ? v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) + "%" : "—";
+const fmtData = iso => { if(!iso) return ""; const [a,m,d]=iso.split("-"); return `${d}/${m}/${a}`; };
+const lerNum = s => {
+  s = String(s).trim();
+  const n = s.includes(",")
+    ? parseFloat(s.replace(/\./g,"").replace(",","."))   // 1.234,56 → 1234.56
+    : parseFloat(s);                                     // 6.67 → 6.67
+  return isFinite(n) ? n : 0;
+};
+
+/* ================== Cálculo de margens ================== */
+function margens(r){
+  const sfR = r.venda - r.custo;
+  const sfP = r.custo > 0 ? sfR / r.custo * 100 : NaN;
+  const cfR = r.venda - r.custo - r.frete;
+  const base = r.custo + r.frete;
+  const cfP = base > 0 ? cfR / base * 100 : NaN;
+  return {sfR, sfP, cfR, cfP};
+}
+
+/* ================== Filtros ================== */
+function montarFiltros(){
+  const cfg = [
+    ["fPosto","posto"],["fForma","forma"],
+    ["fComb","combustivel"],["fDist","distribuidora"]
+  ];
+  cfg.forEach(([id,chave])=>{
+    const sel = document.getElementById(id);
+    const atual = sel.value || "Todos";
+    const valores = [...new Set([...OPCOES[chave], ...registros.map(r=>r[chave])])].filter(Boolean);
+    sel.innerHTML = '<option>Todos</option>' + valores.map(v=>`<option${v===atual?" selected":""}>${v}</option>`).join("");
+  });
+}
+
+function filtrar(r){
+  const ini = document.getElementById("fDataIni").value;
+  const fim = document.getElementById("fDataFim").value;
+  if(ini && r.data && r.data < ini) return false;
+  if(fim && r.data && r.data > fim) return false;
+  const passa = (id,chave)=>{ const v=document.getElementById(id).value; return v==="Todos" || r[chave]===v; };
+  return passa("fPosto","posto") && passa("fForma","forma") &&
+         passa("fComb","combustivel") && passa("fDist","distribuidora");
+}
+
+/* ================== Renderização ================== */
+function selectHTML(chave, valorAtual, idx){
+  const valores = [...new Set([...OPCOES[chave], valorAtual])].filter(Boolean);
+  return `<select onchange="atualizar(${idx},'${chave}',this.value)">` +
+    valores.map(v=>`<option${v===valorAtual?" selected":""}>${v}</option>`).join("") + "</select>";
+}
+
+function render(){
+  montarFiltros();
+  const corpo = document.getElementById("corpo");
+  const visiveis = registros.map((r,i)=>({r,i})).filter(({r})=>filtrar(r));
+
+  if(!visiveis.length){
+    corpo.innerHTML = '<tr><td colspan="13" class="vazio">Nenhum registro para os filtros escolhidos. Ajuste os filtros ou adicione um registro.</td></tr>';
+    document.getElementById("rodapeTabela").innerHTML = "";
+    return;
+  }
+
+  corpo.innerHTML = visiveis.map(({r,i})=>{
+    const m = margens(r);
+    return `<tr>
+      <td><input type="date" value="${r.data}" onchange="atualizar(${i},'data',this.value)"></td>
+      <td>${selectHTML("posto", r.posto, i)}</td>
+      <td>${selectHTML("forma", r.forma, i)}</td>
+      <td>${selectHTML("combustivel", r.combustivel, i)}</td>
+      <td><input class="num" value="${r.custo.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4})}" onchange="atualizarNum(${i},'custo',this)"></td>
+      <td><input class="num" value="${r.frete.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4})}" onchange="atualizarNum(${i},'frete',this)"></td>
+      <td><input class="num" value="${r.venda.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4})}" onchange="atualizarNum(${i},'venda',this)"></td>
+      <td class="calc${m.sfR<0?" neg":""}">${fmtRS(m.sfR)}</td>
+      <td class="calc${m.sfP<0?" neg":""}">${fmtPct(m.sfP)}</td>
+      <td class="calc${m.cfR<0?" neg":""}">${fmtRS(m.cfR)}</td>
+      <td class="calc${m.cfP<0?" neg":""}">${fmtPct(m.cfP)}</td>
+      <td>${selectHTML("distribuidora", r.distribuidora, i)}</td>
+      <td><button class="btn-excluir" title="Excluir registro" onclick="excluir(${i})">✕</button></td>
+    </tr>`;
+  }).join("");
+
+  // Rodapé com médias dos registros visíveis
+  const rs = visiveis.map(({r})=>r);
+  const media = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+  const ms = rs.map(margens);
+  document.getElementById("rodapeTabela").innerHTML = `<tr>
+    <td colspan="4">Média (${rs.length} registro${rs.length>1?"s":""})</td>
+    <td>${fmtRS(media(rs.map(r=>r.custo)))}</td>
+    <td>${fmtRS(media(rs.map(r=>r.frete)))}</td>
+    <td>${fmtRS(media(rs.map(r=>r.venda)))}</td>
+    <td>${fmtRS(media(ms.map(m=>m.sfR)))}</td>
+    <td>${fmtPct(media(ms.map(m=>m.sfP)))}</td>
+    <td>${fmtRS(media(ms.map(m=>m.cfR)))}</td>
+    <td>${fmtPct(media(ms.map(m=>m.cfP)))}</td>
+    <td colspan="2"></td>
+  </tr>`;
+}
+
+/* ================== Ações ================== */
+function atualizar(i, chave, valor){ registros[i][chave] = valor; persistir(); render(); }
+function atualizarNum(i, chave, el){ registros[i][chave] = lerNum(el.value); persistir(); render(); }
+
+function novaLinha(){
+  const base = registros[registros.length-1];
+  registros.push({
+    data: new Date().toISOString().slice(0,10),
+    posto: base ? base.posto : OPCOES.posto[0],
+    forma: base ? base.forma : OPCOES.forma[0],
+    combustivel: base ? base.combustivel : OPCOES.combustivel[0],
+    custo:0, frete:0, venda:0,
+    distribuidora: base ? base.distribuidora : OPCOES.distribuidora[0]
+  });
+  persistir();
+  render();
+}
+
+function excluir(i){
+  if(confirm("Excluir este registro?")){ registros.splice(i,1); persistir(); render(); }
+}
+
+/* ================== Salvar / Carregar / Exportar ================== */
+function baixar(nome, conteudo, tipo){
+  const blob = new Blob([conteudo], {type:tipo});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = nome;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function salvarJSON(){
+  baixar("margens_combustiveis.json", JSON.stringify(registros, null, 2), "application/json");
+}
+
+function carregarJSON(ev){
+  const f = ev.target.files[0];
+  if(!f) return;
+  const leitor = new FileReader();
+  leitor.onload = e => {
+    try{
+      const dados = JSON.parse(e.target.result);
+      if(!Array.isArray(dados)) throw new Error();
+      registros = dados;
+      persistir();
+      render();
+    }catch{
+      alert("O arquivo escolhido não é um .json válido gerado por esta ferramenta.");
+    }
+  };
+  leitor.readAsText(f);
+  ev.target.value = "";
+}
+
+function exportarCSV(){
+  const cab = ["Data","Posto","Forma","Combustível","Preço de Custo","Preço Frete","Preço de Venda",
+               "Margem R$ S/Frete","Margem % S/Frete","Margem R$ C/Frete","Margem % C/Frete","Distribuidora"];
+  const num = v => v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4});
+  const linhas = registros.filter(filtrar).map(r=>{
+    const m = margens(r);
+    return [fmtData(r.data), r.posto, r.forma, r.combustivel,
+            num(r.custo), num(r.frete), num(r.venda),
+            num(m.sfR), num(m.sfP)+"%", num(m.cfR), num(m.cfP)+"%",
+            r.distribuidora].map(c=>`"${c}"`).join(";");
+  });
+  baixar("margens_combustiveis.csv", "\uFEFF" + cab.join(";") + "\n" + linhas.join("\n"), "text/csv;charset=utf-8");
+}
+
+render();
+
+/* ================== PWA: service worker ================== */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
