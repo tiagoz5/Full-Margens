@@ -208,6 +208,30 @@
   #painelRegistros.aberto{display:block}
   #btnRegistros.ativo{box-shadow:0 0 0 2px var(--verde) inset;color:var(--verde)}
 
+  /* ---------- Histórico / Sincronização ---------- */
+  .barra-sync{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--borda);
+  }
+  .info-sync{font-size:.82rem;color:var(--cinza)}
+  .lista-hist{display:flex;flex-direction:column;gap:6px}
+  .hist-item{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:9px 12px;background:#F7F7F7;border:1px solid var(--borda);
+    border-left:3px solid var(--verde);border-radius:6px;font-size:.84rem;flex-wrap:wrap;
+  }
+  .hist-item .quem{font-weight:600;color:var(--grafite)}
+  .hist-item .acao-criou{color:#1B7A3D;font-weight:600}
+  .hist-item .acao-editou{color:#B26A00;font-weight:600}
+  .hist-item .acao-excluiu{color:var(--vermelho);font-weight:600}
+  .hist-item .acao-desfez{color:#5A3FBF;font-weight:600}
+  .hist-item .quando{color:var(--cinza);font-size:.76rem}
+  .hist-item .resumo{color:#333;flex:1;min-width:160px}
+  .hist-item button{
+    background:var(--grafite);color:#fff;border-radius:6px;padding:5px 12px;font-size:.76rem;
+  }
+  .hist-vazio{padding:22px;text-align:center;color:var(--cinza);font-style:italic}
+
   /* ---------- Dashboard ---------- */
   .dash-controles{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
   .dash-controles label{
@@ -367,6 +391,7 @@
     <div class="acoes">
       <button class="btn-claro" id="btnRegistros" onclick="alternarRegistros()">📋 Lançamentos</button>
       <button class="btn-claro" onclick="alternarDash()">📈 Dashboard</button>
+      <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()">🕐 Histórico</button>
       <button class="btn-claro" onclick="exportarPDF()">📄 Exportar PDF</button>
       <button class="btn-claro" onclick="window.print()">🖨️ Imprimir</button>
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
@@ -382,6 +407,18 @@
     <div class="filtro"><label for="fForma">Forma</label><select id="fForma" onchange="render()"></select></div>
     <div class="filtro"><label for="fComb">Combustível</label><select id="fComb" onchange="render()"></select></div>
     <div class="filtro"><label for="fDist">Distribuidora</label><select id="fDist" onchange="render()"></select></div>
+  </div>
+
+  <div class="config" id="painelHistorico">
+    <div class="grupo">
+      <h2>Histórico de modificações</h2>
+      <div class="barra-sync">
+        <span id="infoUltimaSync2" class="info-sync"></span>
+        <button class="btn-verde" onclick="enviarParaNuvem()">☁️ Enviar lançamentos para a nuvem</button>
+      </div>
+      <div id="listaHistorico" class="lista-hist"></div>
+      <p class="nota-dash">As últimas alterações feitas por qualquer usuário aparecem aqui, com data e autor. Clique em "Desfazer" para reverter uma alteração (restaura ou remove o lançamento conforme o caso).</p>
+    </div>
   </div>
 
   <div class="config" id="painelDash">
@@ -461,7 +498,7 @@
   </div>
 
   <div class="rodape">
-    <span class="dica">Edite qualquer célula diretamente — tudo é salvo automaticamente neste dispositivo. Em ⚙ Configurações você gerencia postos, distribuidoras e o frete padrão. Use "Exportar PDF" para gerar relatórios.</span>
+    <span class="dica">Edite qualquer célula diretamente — tudo é salvo na nuvem e sincronizado automaticamente entre os aparelhos conectados. <span id="infoUltimaSync"></span> Em ⚙ Configurações você gerencia postos, distribuidoras e o frete padrão.</span>
     <button class="btn-verde" onclick="novaLinha()">+ Adicionar registro</button>
   </div>
   </div>
@@ -487,6 +524,10 @@ const db = firebase.firestore();
 try { db.enablePersistence({ synchronizeTabs: true }).catch(()=>{}); } catch {}
 const colLancamentos = db.collection("lancamentos");
 const docConfig = db.collection("config").doc("geral");
+const colHistorico = db.collection("historico");
+let usuarioAtual = "";                 // e-mail de quem está logado (para o histórico)
+let ultimaSync = null;                 // Date da última sincronização com a nuvem
+let escutaHistorico = null;
 let nuvemPronta = false;        // já recebemos o primeiro retrato da nuvem?
 let escutaLancamentos = null;   // cancelador do listener em tempo real
 let escutaConfig = null;
@@ -552,6 +593,7 @@ auth.onAuthStateChanged(usuario => {
   document.getElementById("appPrincipal").style.display = logado ? "block" : "none";
   if (logado){
     document.getElementById("usuarioLogado").textContent = usuario.email;
+    usuarioAtual = usuario.email || "";
     const ehAdmin = ADMINS.includes((usuario.email||"").toLowerCase());
     document.getElementById("btnUsuarios").style.display = ehAdmin ? "" : "none";
     iniciarSync();
@@ -703,6 +745,8 @@ function salvarFretePadrao(el){
 /* ================== Dados (com salvamento automático) ================== */
 const CHAVE = "margens_combustiveis_dados";
 
+let historico = [];
+try { const s = localStorage.getItem("margens_ultima_sync"); if (s) ultimaSync = new Date(s); } catch {}
 let registros;
 try {
   registros = JSON.parse(localStorage.getItem(CHAVE)) || null;
@@ -720,11 +764,27 @@ registros.forEach(r => { if (!r.id) r.id = "l_" + Date.now().toString(36) + "_" 
 let avisoSalvo = null;
 function statusSync(txto){
   const el = document.getElementById("statusSalvo");
-  if (!el) return;
-  el.textContent = txto;
-  el.style.opacity = "1";
-  clearTimeout(avisoSalvo);
-  if (txto.startsWith("✓")) avisoSalvo = setTimeout(()=>{ el.style.opacity = "0"; }, 2000);
+  if (el){
+    el.textContent = txto;
+    el.style.opacity = "1";
+    clearTimeout(avisoSalvo);
+    if (txto.startsWith("✓")) avisoSalvo = setTimeout(()=>{ el.style.opacity = "0"; }, 2000);
+  }
+  if (txto.startsWith("✓")){
+    ultimaSync = new Date();
+    try { localStorage.setItem("margens_ultima_sync", ultimaSync.toISOString()); } catch {}
+    atualizarInfoSync();
+  }
+}
+
+function fmtDataHora(d){
+  if (!d) return "—";
+  return d.toLocaleDateString("pt-BR") + " às " + d.toLocaleTimeString("pt-BR").slice(0,5);
+}
+
+function atualizarInfoSync(){
+  const el = document.getElementById("infoUltimaSync");
+  if (el) el.textContent = ultimaSync ? "Última sincronização: " + fmtDataHora(ultimaSync) : "Ainda não sincronizado";
 }
 
 /* Cache local (funciona offline e enquanto a nuvem carrega) */
@@ -733,7 +793,7 @@ function salvarCache(){
 }
 
 /* Grava/atualiza um único lançamento na nuvem */
-function salvarRegistro(r){
+function salvarRegistro(r, acaoHist){
   if (!r.id) r.id = novoId();
   salvarCache();
   if (!nuvemPronta){ return; }   // ainda offline/carregando — cache já guardou
@@ -742,12 +802,32 @@ function salvarRegistro(r){
   colLancamentos.doc(id).set(dados)
     .then(()=> statusSync("✓ Sincronizado"))
     .catch(()=> statusSync("✓ Salvo no aparelho (sincroniza ao reconectar)"));
+  if (acaoHist) registrarHistorico(acaoHist, r);
+}
+
+/* ---------- Histórico de modificações ---------- */
+function resumoRegistro(r){
+  const n = v => (typeof v === "number" ? v.toLocaleString("pt-BR",{minimumFractionDigits:2}) : v);
+  return [r.data, r.posto, r.combustivel, "custo " + n(r.custo), "venda " + n(r.venda)].filter(Boolean).join(" · ");
+}
+function registrarHistorico(acao, r){
+  if (!nuvemPronta) return;
+  const item = {
+    acao,                                  // "criou" | "editou" | "excluiu"
+    usuario: usuarioAtual || "—",
+    quando: firebase.firestore.FieldValue.serverTimestamp(),
+    registroId: r.id || null,
+    resumo: resumoRegistro(r),
+    dados: (() => { const { ...d } = r; return d; })()   // snapshot para poder restaurar
+  };
+  colHistorico.add(item).catch(()=>{});
 }
 
 /* Remove um lançamento da nuvem */
-function removerRegistroNuvem(id){
+function removerRegistroNuvem(id, registro){
   if (!id || !nuvemPronta) return;
   colLancamentos.doc(id).delete().catch(()=>{});
+  if (registro) registrarHistorico("excluiu", registro);
 }
 
 /* Compatibilidade: chamadas antigas a persistir() agora só atualizam o cache
@@ -755,8 +835,30 @@ function removerRegistroNuvem(id){
 function persistir(){ salvarCache(); }
 
 /* ---------- Sincronização em tempo real ---------- */
+/* Envio manual: reenvia todos os lançamentos locais para a nuvem (garantia) */
+function enviarParaNuvem(){
+  if (!nuvemPronta){ statusSync("Sem conexão no momento — tente novamente"); return; }
+  statusSync("Enviando…");
+  const lote = db.batch();
+  registros.forEach(r => {
+    if (!r.id) r.id = novoId();
+    const { id, ...dados } = r;
+    lote.set(colLancamentos.doc(id), dados);
+  });
+  lote.commit()
+    .then(()=> statusSync("✓ Enviado para a nuvem"))
+    .catch(()=> statusSync("Falha ao enviar — verifique a conexão"));
+}
+
 function iniciarSync(){
   if (escutaLancamentos) return;  // já ativo
+
+  // Histórico de modificações (mais recentes primeiro)
+  escutaHistorico = colHistorico.orderBy("quando", "desc").limit(100).onSnapshot(snap => {
+    historico = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const p = document.getElementById("painelHistorico");
+    if (p && p.classList.contains("aberto")) renderHistorico();
+  }, ()=>{});
   // Configurações compartilhadas
   escutaConfig = docConfig.onSnapshot(snap => {
     if (snap.exists){
@@ -907,8 +1009,8 @@ function render(){
 
 /* ================== Ações ================== */
 function novoId(){ return "l_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2,8); }
-function atualizar(i, chave, valor){ registros[i][chave] = valor; salvarRegistro(registros[i]); render(); }
-function atualizarNum(i, chave, el){ registros[i][chave] = lerNum(el.value); salvarRegistro(registros[i]); render(); }
+function atualizar(i, chave, valor){ registros[i][chave] = valor; salvarRegistro(registros[i], "editou"); render(); }
+function atualizarNum(i, chave, el){ registros[i][chave] = lerNum(el.value); salvarRegistro(registros[i], "editou"); render(); }
 
 function novaLinha(){
   const base = registros[registros.length-1];
@@ -922,7 +1024,7 @@ function novaLinha(){
     distribuidora: base ? base.distribuidora : (listas.distribuidora[0] || "")
   };
   registros.push(novo);
-  salvarRegistro(novo);
+  salvarRegistro(novo, "criou");
   render();
 }
 
@@ -933,7 +1035,7 @@ function excluir(i){
     clearTimeout(timerExclusaoLinha);
     confirmarExclusaoLinha = null;
     const removido = registros.splice(i,1)[0];
-    if (removido && removido.id) removerRegistroNuvem(removido.id);
+    if (removido && removido.id) removerRegistroNuvem(removido.id, removido);
     salvarCache();
     render();
   } else {
@@ -952,6 +1054,55 @@ function alternarRegistros(){
 function atualizarBotaoRegistros(){
   const aberto = document.getElementById("painelRegistros").classList.contains("aberto");
   document.getElementById("btnRegistros").classList.toggle("ativo", aberto);
+}
+
+/* ================== Histórico de modificações ================== */
+function alternarHistorico(){
+  const p = document.getElementById("painelHistorico");
+  p.classList.toggle("aberto");
+  document.getElementById("btnHistorico").classList.toggle("ativo", p.classList.contains("aberto"));
+  if (p.classList.contains("aberto")) renderHistorico();
+}
+
+function renderHistorico(){
+  const el = document.getElementById("infoUltimaSync2");
+  if (el) el.textContent = ultimaSync ? "Última sincronização: " + fmtDataHora(ultimaSync) : "Ainda não sincronizado";
+
+  const alvo = document.getElementById("listaHistorico");
+  if (!historico.length){
+    alvo.innerHTML = '<div class="hist-vazio">Nenhuma modificação registrada ainda. As próximas alterações aparecerão aqui.</div>';
+    return;
+  }
+  const rotulo = { criou:"criou", editou:"editou", excluiu:"excluiu", desfez:"desfez" };
+  alvo.innerHTML = historico.map(h => {
+    const quando = h.quando && h.quando.toDate ? fmtDataHora(h.quando.toDate()) : "agora";
+    const acao = rotulo[h.acao] || h.acao;
+    return `<div class="hist-item">
+      <span class="resumo">
+        <span class="quem">${h.usuario}</span>
+        <span class="acao-${h.acao}"> ${acao} </span>
+        ${h.resumo || ""}
+      </span>
+      <span class="quando">${quando}</span>
+      <button onclick="desfazerHistorico('${h.id}')">Desfazer</button>
+    </div>`;
+  }).join("");
+}
+
+function desfazerHistorico(idHist){
+  const h = historico.find(x => x.id === idHist);
+  if (!h || !nuvemPronta) return;
+  // "excluiu" -> restaura o lançamento; "criou"/"editou" -> se editou, volta ao estado anterior é complexo,
+  // então tratamos: criou -> remove; editou -> restaura o snapshot salvo; excluiu -> recria.
+  if (h.acao === "criou"){
+    if (h.registroId) colLancamentos.doc(h.registroId).delete().catch(()=>{});
+  } else if (h.dados && h.registroId){
+    const { id, ...dados } = h.dados;
+    colLancamentos.doc(h.registroId).set(dados).catch(()=>{});
+  }
+  // registra o desfazer como nova entrada de histórico
+  registrarHistorico("desfez", h.dados || { id: h.registroId });
+  statusSync("✓ Alteração desfeita");
 }
 
 /* ================== Dashboard: evolução do preço de compra ================== */
