@@ -921,7 +921,7 @@ function dadosDashboard(comb){
     if (r.combustivel !== comb) return;
     if (dIni && r.data < dIni) return;
     if (dFim && r.data > dFim) return;
-    if (posto && r.posto !== posto) return;
+    if (posto && posto !== "Todos" && r.posto !== posto) return;
     if (!isFinite(r.custo) || !r.data) return;
     (porData[r.data] = porData[r.data] || []).push(r.custo);
   });
@@ -1028,7 +1028,7 @@ function exportarPDF(){
   if (dFim) partes.push("até " + fmtData(dFim));
   ["fPosto","fForma","fComb","fDist"].forEach(id => {
     const v = document.getElementById(id).value;
-    if (v) partes.push(v);
+    if (v && v !== "Todos") partes.push(v);
   });
   doc.setTextColor(90, 90, 90);
   doc.setFontSize(9);
