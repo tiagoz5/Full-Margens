@@ -758,7 +758,9 @@ function render(){
   const dash = document.getElementById("painelDash");
   if (dash && dash.classList.contains("aberto")) renderDashboard();
   const corpo = document.getElementById("corpo");
-  const visiveis = registros.map((r,i)=>({r,i})).filter(({r})=>filtrar(r));
+  const visiveis = registros.map((r,i)=>({r,i}))
+    .filter(({r})=>filtrar(r))
+    .sort((a,b)=>(a.r.data || "9999-99-99").localeCompare(b.r.data || "9999-99-99"));
 
   if(!visiveis.length){
     corpo.innerHTML = '<tr><td colspan="13" class="vazio">Nenhum registro para os filtros escolhidos. Ajuste os filtros ou adicione um registro.</td></tr>';
@@ -1014,7 +1016,8 @@ function exportarPDF(){
   doc.text("Filtros: " + (partes.length ? partes.join("  •  ") : "todos os registros"), 14, 31);
 
   // Tabela
-  const visiveis = registros.filter(filtrar);
+  const visiveis = registros.filter(filtrar)
+    .sort((a,b)=>(a.data || "9999-99-99").localeCompare(b.data || "9999-99-99"));
   const corpo = visiveis.map(r => {
     const m = margens(r);
     return [fmtData(r.data), r.posto, r.forma, r.combustivel,
