@@ -12,6 +12,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <style>
@@ -194,6 +196,34 @@
   }
   .frete-padrao .nota{font-size:.75rem;color:var(--cinza);font-style:italic}
 
+  /* ---------- Dashboard ---------- */
+  .dash-controles{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .dash-controles label{
+    font-family:"Oswald","Poppins",sans-serif;font-size:.78rem;
+    text-transform:uppercase;letter-spacing:.6px;color:var(--grafite);
+  }
+  .dash-controles select{
+    padding:8px 12px;border:1px solid var(--borda);border-radius:6px;
+    font-size:.9rem;background:#fff;min-width:190px;
+  }
+  .dash-controles select:focus{outline:2px solid var(--verde);outline-offset:-1px}
+  .resumo-dash{
+    display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;
+    font-size:.85rem;
+  }
+  .resumo-dash .cartao-kpi{
+    background:#F7F7F7;border:1px solid var(--borda);border-left:4px solid var(--verde);
+    border-radius:8px;padding:8px 14px;
+  }
+  .resumo-dash .cartao-kpi b{display:block;font-size:1.05rem;color:var(--grafite)}
+  .resumo-dash .cartao-kpi span{font-size:.72rem;color:var(--cinza);text-transform:uppercase;letter-spacing:.4px}
+  .resumo-dash .sobe{color:var(--vermelho)}
+  .resumo-dash .desce{color:#1B7A3D}
+  .grafico-dash{overflow-x:auto;border:1px solid var(--borda);border-radius:8px;background:#fff;padding:8px}
+  .grafico-dash svg{display:block}
+  .nota-dash{font-size:.74rem;color:var(--cinza);font-style:italic;margin-top:8px}
+  .dash-vazio{padding:26px;text-align:center;color:var(--cinza);font-style:italic}
+
   /* ---------- Tela de login ---------- */
   #telaLogin{
     position:fixed;inset:0;z-index:1000;
@@ -319,7 +349,8 @@
     <div class="acoes">
       <button class="btn-claro" onclick="salvarJSON()">Salvar dados</button>
       <button class="btn-claro" onclick="document.getElementById('arquivo').click()">Carregar dados</button>
-      <button class="btn-claro" onclick="exportarCSV()">Exportar CSV</button>
+      <button class="btn-claro" onclick="exportarPDF()">Exportar PDF</button>
+      <button class="btn-claro" onclick="alternarDash()">📈 Dashboard</button>
       <button class="btn-dourado" onclick="window.print()">Imprimir</button>
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
       <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()">👥 Usuários</button>
@@ -335,6 +366,19 @@
     <div class="filtro"><label for="fForma">Forma</label><select id="fForma" onchange="render()"></select></div>
     <div class="filtro"><label for="fComb">Combustível</label><select id="fComb" onchange="render()"></select></div>
     <div class="filtro"><label for="fDist">Distribuidora</label><select id="fDist" onchange="render()"></select></div>
+  </div>
+
+  <div class="config" id="painelDash">
+    <div class="grupo">
+      <h2>Evolução do preço de compra</h2>
+      <div class="dash-controles">
+        <label for="dashComb">Combustível:</label>
+        <select id="dashComb" onchange="renderDashboard()"></select>
+      </div>
+      <div id="resumoDash" class="resumo-dash"></div>
+      <div id="graficoDash" class="grafico-dash"></div>
+      <p class="nota-dash">Cada ponto é a média do preço de custo lançado na data (respeitando os filtros de data e posto acima). Os valores em vermelho/verde mostram quantos centavos o preço subiu ou caiu em relação ao lançamento anterior.</p>
+    </div>
   </div>
 
   <div class="config" id="painelAdmin">
@@ -711,6 +755,8 @@ function selectHTML(chave, valorAtual, idx){
 
 function render(){
   montarFiltros();
+  const dash = document.getElementById("painelDash");
+  if (dash && dash.classList.contains("aberto")) renderDashboard();
   const corpo = document.getElementById("corpo");
   const visiveis = registros.map((r,i)=>({r,i})).filter(({r})=>filtrar(r));
 
@@ -826,18 +872,182 @@ function carregarJSON(ev){
   ev.target.value = "";
 }
 
-function exportarCSV(){
-  const cab = ["Data","Posto","Forma","Combustível","Preço de Custo","Preço Frete","Preço de Venda",
-               "Margem R$ S/Frete","Margem % S/Frete","Margem R$ C/Frete","Margem % C/Frete","Distribuidora"];
+/* ================== Dashboard: evolução do preço de compra ================== */
+function alternarDash(){
+  const p = document.getElementById("painelDash");
+  p.classList.toggle("aberto");
+  if (p.classList.contains("aberto")) renderDashboard();
+}
+
+function preencherDashComb(){
+  const sel = document.getElementById("dashComb");
+  if (!sel) return;
+  const atual = sel.value;
+  const opcoes = opcoesDe("combustivel");
+  sel.innerHTML = opcoes.map(c => `<option${c===atual?" selected":""}>${c}</option>`).join("");
+  if (!opcoes.includes(atual) && opcoes.length) sel.value = opcoes[0];
+}
+
+const fmtBR = (v, casas=2) => v.toLocaleString("pt-BR",{minimumFractionDigits:casas,maximumFractionDigits:casas});
+
+function dadosDashboard(){
+  const comb = document.getElementById("dashComb").value;
+  // Respeita filtros de data e posto (ignora o filtro de combustível da tabela)
+  const dIni = document.getElementById("fDataIni").value;
+  const dFim = document.getElementById("fDataFim").value;
+  const posto = document.getElementById("fPosto").value;
+  const porData = {};
+  registros.forEach(r => {
+    if (r.combustivel !== comb) return;
+    if (dIni && r.data < dIni) return;
+    if (dFim && r.data > dFim) return;
+    if (posto && r.posto !== posto) return;
+    if (!isFinite(r.custo) || !r.data) return;
+    (porData[r.data] = porData[r.data] || []).push(r.custo);
+  });
+  return Object.keys(porData).sort().map(d => ({
+    data: d,
+    custo: porData[d].reduce((a,b)=>a+b,0) / porData[d].length
+  }));
+}
+
+function renderDashboard(){
+  preencherDashComb();
+  const pontos = dadosDashboard();
+  const alvo = document.getElementById("graficoDash");
+  const resumo = document.getElementById("resumoDash");
+  if (pontos.length === 0){
+    alvo.innerHTML = '<div class="dash-vazio">Nenhum lançamento deste combustível no período selecionado.</div>';
+    resumo.innerHTML = "";
+    return;
+  }
+
+  // ----- Resumo (KPIs) -----
+  const primeiro = pontos[0].custo, ultimo = pontos[pontos.length-1].custo;
+  const variacao = ultimo - primeiro;
+  const centavos = Math.round(Math.abs(variacao) * 100);
+  const classe = variacao > 0.0001 ? "sobe" : variacao < -0.0001 ? "desce" : "";
+  const seta = variacao > 0.0001 ? "▲ subiu" : variacao < -0.0001 ? "▼ caiu" : "estável";
+  resumo.innerHTML = `
+    <div class="cartao-kpi"><span>Último custo</span><b>R$ ${fmtBR(ultimo, 3)}</b></div>
+    <div class="cartao-kpi"><span>Variação no período</span>
+      <b class="${classe}">${seta}${centavos ? " " + centavos + " centavo" + (centavos>1?"s":"") : ""}</b></div>
+    <div class="cartao-kpi"><span>Menor / Maior</span>
+      <b>R$ ${fmtBR(Math.min(...pontos.map(p=>p.custo)),3)} / R$ ${fmtBR(Math.max(...pontos.map(p=>p.custo)),3)}</b></div>`;
+
+  // ----- Gráfico de linha (SVG) -----
+  const H = 300, mT = 24, mB = 46, mL = 62, mR = 24;
+  const passoX = Math.max(70, 640 / Math.max(pontos.length-1, 1));
+  const W = Math.max(680, mL + mR + passoX * (pontos.length-1));
+  const vals = pontos.map(p=>p.custo);
+  let vMin = Math.min(...vals), vMax = Math.max(...vals);
+  if (vMax - vMin < 0.05){ const meio=(vMax+vMin)/2; vMin=meio-0.05; vMax=meio+0.05; }
+  const folga = (vMax - vMin) * 0.15; vMin -= folga; vMax += folga;
+  const X = i => mL + i * passoX;
+  const Y = v => mT + (H - mT - mB) * (1 - (v - vMin) / (vMax - vMin));
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" font-family="Poppins,Arial,sans-serif">`;
+  // Linhas de grade horizontais + eixo Y
+  for (let g = 0; g <= 4; g++){
+    const v = vMin + (vMax - vMin) * g / 4, y = Y(v);
+    s += `<line x1="${mL}" y1="${y}" x2="${W-mR}" y2="${y}" stroke="#EAEAEA"/>`;
+    s += `<text x="${mL-8}" y="${y+4}" text-anchor="end" font-size="11" fill="#6E6E6E">${fmtBR(v,2)}</text>`;
+  }
+  // Linha do preço
+  const caminho = pontos.map((p,i)=>`${i?"L":"M"}${X(i)},${Y(p.custo)}`).join(" ");
+  s += `<path d="${caminho}" fill="none" stroke="#FF6401" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
+  // Pontos, valores, datas e variações
+  pontos.forEach((p,i)=>{
+    const x = X(i), y = Y(p.custo);
+    s += `<circle cx="${x}" cy="${y}" r="5" fill="#FF6401" stroke="#fff" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y-12}" text-anchor="middle" font-size="11" font-weight="600" fill="#1E1E1E">${fmtBR(p.custo,3)}</text>`;
+    const [a,m,d] = p.data.split("-");
+    s += `<text x="${x}" y="${H-mB+18}" text-anchor="middle" font-size="11" fill="#6E6E6E">${d}/${m}</text>`;
+    if (i > 0){
+      const dif = p.custo - pontos[i-1].custo;
+      const cent = Math.round(Math.abs(dif)*100);
+      if (cent > 0){
+        const cor = dif > 0 ? "#C62828" : "#1B7A3D";
+        const txt = (dif > 0 ? "+" : "−") + cent + "¢";
+        s += `<text x="${(x + X(i-1))/2}" y="${H-mB+36}" text-anchor="middle" font-size="10" font-weight="600" fill="${cor}">${txt}</text>`;
+      }
+    }
+  });
+  s += "</svg>";
+  alvo.innerHTML = s;
+}
+
+/* ================== Exportar PDF ================== */
+function exportarPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const num = v => v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4});
-  const linhas = registros.filter(filtrar).map(r=>{
+
+  // Cabeçalho na identidade da marca
+  doc.setFillColor(30, 30, 30);
+  doc.rect(0, 0, 297, 24, "F");
+  doc.setFillColor(255, 100, 1);
+  doc.rect(0, 24, 297, 1.6, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.text("POSTOS FULL", 14, 11);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text("Controle de Margens — Combustíveis", 14, 18);
+  const agora = new Date();
+  doc.setFontSize(8);
+  doc.text("Gerado em " + agora.toLocaleDateString("pt-BR") + " às " + agora.toLocaleTimeString("pt-BR").slice(0,5), 283, 18, { align: "right" });
+
+  // Filtros aplicados
+  const dIni = document.getElementById("fDataIni").value;
+  const dFim = document.getElementById("fDataFim").value;
+  const partes = [];
+  if (dIni) partes.push("de " + fmtData(dIni));
+  if (dFim) partes.push("até " + fmtData(dFim));
+  ["fPosto","fForma","fComb","fDist"].forEach(id => {
+    const v = document.getElementById(id).value;
+    if (v) partes.push(v);
+  });
+  doc.setTextColor(90, 90, 90);
+  doc.setFontSize(9);
+  doc.text("Filtros: " + (partes.length ? partes.join("  •  ") : "todos os registros"), 14, 31);
+
+  // Tabela
+  const visiveis = registros.filter(filtrar);
+  const corpo = visiveis.map(r => {
     const m = margens(r);
     return [fmtData(r.data), r.posto, r.forma, r.combustivel,
             num(r.custo), num(r.frete), num(r.venda),
-            num(m.sfR), num(m.sfP)+"%", num(m.cfR), num(m.cfP)+"%",
-            r.distribuidora].map(c=>`"${c}"`).join(";");
+            num(m.sfR), num(m.sfP)+"%", num(m.cfR), num(m.cfP)+"%", r.distribuidora];
   });
-  baixar("margens_combustiveis.csv", "\uFEFF" + cab.join(";") + "\n" + linhas.join("\n"), "text/csv;charset=utf-8");
+  // Médias no rodapé
+  let rodape = [];
+  if (visiveis.length){
+    const soma = {sfR:0,sfP:0,cfR:0,cfP:0};
+    visiveis.forEach(r => { const m = margens(r); soma.sfR+=m.sfR; soma.sfP+=m.sfP; soma.cfR+=m.cfR; soma.cfP+=m.cfP; });
+    const n = visiveis.length;
+    rodape = [["Médias","","","","","","", num(soma.sfR/n), num(soma.sfP/n)+"%", num(soma.cfR/n), num(soma.cfP/n)+"%",""]];
+  }
+
+  doc.autoTable({
+    startY: 35,
+    head: [["Data","Posto","Forma","Combustível","Custo","Frete","Venda",
+            "Margem R$ S/F","Margem % S/F","Margem R$ C/F","Margem % C/F","Distribuidora"]],
+    body: corpo,
+    foot: rodape,
+    styles: { font: "helvetica", fontSize: 8, halign: "center", cellPadding: 1.8 },
+    headStyles: { fillColor: [30,30,30], textColor: 255, fontSize: 7.5 },
+    footStyles: { fillColor: [255,240,230], textColor: [30,30,30], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [247,247,247] },
+    didDrawPage: d => {
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text("Página " + doc.internal.getNumberOfPages(), 283, 205, { align: "right" });
+    }
+  });
+
+  doc.save("postos_full_margens_" + agora.toISOString().slice(0,10) + ".pdf");
 }
 
 render();
