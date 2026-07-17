@@ -407,7 +407,7 @@
     </h1>
     <div class="acoes">
       <button class="btn-claro" id="btnRegistros" onclick="alternarRegistros()">📋 Lançamentos</button>
-      <button class="btn-claro" onclick="alternarDash()">📈 Dashboard</button>
+      <button class="btn-claro" id="btnDash" onclick="alternarDash()">📈 Dashboard</button>
       <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()">🕐 Histórico</button>
       <button class="btn-claro" onclick="exportarPDF()">📄 Exportar PDF</button>
       <button class="btn-claro" onclick="window.print()">🖨️ Imprimir</button>
@@ -1087,6 +1087,8 @@ function fecharTodosPaineis(exceto){
   if (bc) bc.classList.toggle("ativo", document.getElementById("painelConfig").classList.contains("aberto"));
   const bu = document.getElementById("btnUsuarios");
   if (bu) bu.classList.toggle("ativo", document.getElementById("painelAdmin").classList.contains("aberto"));
+  const bd = document.getElementById("btnDash");
+  if (bd) bd.classList.toggle("ativo", document.getElementById("painelDash").classList.contains("aberto"));
 }
 
 // Abre um painel fechando os demais; se já estava aberto, apenas fecha (liga/desliga)
@@ -1157,7 +1159,10 @@ function desfazerHistorico(idHist){
 
 /* ================== Dashboard: evolução do preço de compra ================== */
 function alternarDash(){
-  if (abrirPainelExclusivo("painelDash")) renderDashboard();
+  const aberto = abrirPainelExclusivo("painelDash");
+  const bd = document.getElementById("btnDash");
+  if (bd) bd.classList.toggle("ativo", aberto);
+  if (aberto) renderDashboard();
 }
 
 const fmtBR = (v, casas=2) => v.toLocaleString("pt-BR",{minimumFractionDigits:casas,maximumFractionDigits:casas});
