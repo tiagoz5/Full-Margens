@@ -9,6 +9,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <style>
   :root{
     --verde:#2E5B3E;
@@ -134,6 +136,107 @@
     text-align:center;padding:30px;color:var(--cinza);font-style:italic;
   }
 
+  /* ---------- Painel de configurações ---------- */
+  .config{
+    display:none;
+    background:#fff;border:1px solid var(--borda);border-top:none;
+    padding:18px 24px;
+  }
+  .config.aberto{display:block}
+  .config h2{
+    font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;
+    color:var(--verde);margin-bottom:8px;
+  }
+  .config .grupo{margin-bottom:18px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--verde-claro);border:1px solid var(--borda);
+    border-radius:20px;padding:5px 6px 5px 12px;font-size:.85rem;
+  }
+  .chip button{
+    background:none;border:none;color:var(--vermelho);
+    font-size:.9rem;padding:0 6px;line-height:1;cursor:pointer;
+  }
+  .chip.alerta{border-color:var(--vermelho);background:#FBEAE6}
+  .chip button.confirmar,.btn-excluir.confirmar{
+    background:var(--vermelho);color:#fff;border-radius:12px;
+    padding:3px 10px;font-size:.75rem;font-weight:700;
+  }
+  .add-linha{display:flex;gap:8px;max-width:420px}
+  .add-linha input{
+    flex:1;padding:8px 10px;border:1px solid var(--borda);
+    border-radius:6px;font-size:.85rem;
+  }
+  .add-linha input:focus{outline:2px solid var(--verde);outline-offset:-1px}
+  .frete-padrao{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .frete-padrao input{
+    width:110px;padding:8px 10px;border:1px solid var(--borda);
+    border-radius:6px;font-size:.9rem;text-align:right;font-weight:600;
+  }
+  .frete-padrao .nota{font-size:.75rem;color:var(--cinza);font-style:italic}
+
+  /* ---------- Tela de login ---------- */
+  #telaLogin{
+    position:fixed;inset:0;z-index:1000;
+    background:linear-gradient(160deg,var(--verde) 0%,var(--verde-escuro) 100%);
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .cartao-login{
+    background:#fff;border-radius:14px;padding:32px 28px;
+    width:100%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,.25);
+  }
+  .cartao-login .marca{
+    text-align:center;margin-bottom:22px;
+  }
+  .cartao-login .marca .icone{
+    font-size:2.2rem;display:block;margin-bottom:6px;
+  }
+  .cartao-login .marca h1{
+    font-size:1.05rem;color:var(--verde);font-weight:700;
+  }
+  .cartao-login label{
+    display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:.5px;color:var(--verde);margin:12px 0 4px;
+  }
+  .cartao-login input{
+    width:100%;padding:11px 12px;border:1px solid var(--borda);
+    border-radius:8px;font-size:.95rem;
+  }
+  .cartao-login input:focus{outline:2px solid var(--verde);outline-offset:-1px}
+  .cartao-login .btn-entrar{
+    width:100%;margin-top:18px;padding:12px;background:var(--verde);
+    color:#fff;font-size:.95rem;border-radius:8px;
+  }
+  .cartao-login .esqueci{
+    display:block;width:100%;text-align:center;margin-top:12px;
+    background:none;color:var(--verde);font-size:.82rem;
+    text-decoration:underline;padding:6px;
+  }
+  .msg-login{
+    margin-top:12px;padding:10px 12px;border-radius:8px;
+    font-size:.82rem;display:none;
+  }
+  .msg-login.erro{display:block;background:#FBEAE6;color:var(--vermelho)}
+  .msg-login.ok{display:block;background:var(--verde-claro);color:var(--verde-escuro)}
+
+  .usuario-logado{
+    font-size:.72rem;color:#D8E6DC;font-weight:400;
+    display:flex;align-items:center;gap:8px;width:100%;
+  }
+
+  /* ---------- Painel admin ---------- */
+  .admin-form{display:flex;gap:8px;flex-wrap:wrap;max-width:560px}
+  .admin-form input{
+    flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--borda);
+    border-radius:6px;font-size:.85rem;
+  }
+  .admin-form input:focus{outline:2px solid var(--verde);outline-offset:-1px}
+  .msg-admin{font-size:.8rem;margin-top:8px;display:none;padding:8px 10px;border-radius:6px}
+  .msg-admin.erro{display:block;background:#FBEAE6;color:var(--vermelho)}
+  .msg-admin.ok{display:block;background:var(--verde-claro);color:var(--verde-escuro)}
+  .link-console{font-size:.78rem;color:var(--verde);text-decoration:underline}
+
   @media print{
     body{background:#fff;padding:0}
     header .acoes,.rodape,td .btn-excluir,thead th:last-child,tbody td:last-child{display:none}
@@ -143,15 +246,45 @@
 </style>
 </head>
 <body>
-<div class="container">
+
+<div id="telaLogin">
+  <div class="cartao-login">
+    <div class="marca">
+      <span class="icone">⛽</span>
+      <h1>Controle de Margens — Combustíveis</h1>
+    </div>
+    <div id="formEntrar">
+      <label for="loginEmail">E-mail</label>
+      <input type="email" id="loginEmail" autocomplete="username" placeholder="seu@email.com">
+      <label for="loginSenha">Senha</label>
+      <input type="password" id="loginSenha" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')entrar()">
+      <button class="btn-entrar" onclick="entrar()">Entrar</button>
+      <button class="esqueci" onclick="mostrarReset()">Esqueci minha senha</button>
+    </div>
+    <div id="formReset" style="display:none">
+      <label for="resetEmail">E-mail cadastrado</label>
+      <input type="email" id="resetEmail" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')enviarReset()">
+      <button class="btn-entrar" onclick="enviarReset()">Enviar link de redefinição</button>
+      <button class="esqueci" onclick="mostrarEntrar()">Voltar ao login</button>
+    </div>
+    <div class="msg-login" id="msgLogin"></div>
+  </div>
+</div>
+
+<div class="container" id="appPrincipal" style="display:none">
 
   <header>
-    <h1>Controle de Margens — Combustíveis <span id="statusSalvo" aria-live="polite"></span></h1>
+    <h1>Controle de Margens — Combustíveis <span id="statusSalvo" aria-live="polite"></span>
+      <span class="usuario-logado" id="usuarioLogado"></span>
+    </h1>
     <div class="acoes">
       <button class="btn-claro" onclick="salvarJSON()">Salvar dados</button>
       <button class="btn-claro" onclick="document.getElementById('arquivo').click()">Carregar dados</button>
       <button class="btn-claro" onclick="exportarCSV()">Exportar CSV</button>
       <button class="btn-dourado" onclick="window.print()">Imprimir</button>
+      <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
+      <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()">👥 Usuários</button>
+      <button class="btn-dourado" onclick="sair()">Sair</button>
       <input type="file" id="arquivo" accept=".json" hidden onchange="carregarJSON(event)">
     </div>
   </header>
@@ -163,6 +296,57 @@
     <div class="filtro"><label for="fForma">Forma</label><select id="fForma" onchange="render()"></select></div>
     <div class="filtro"><label for="fComb">Combustível</label><select id="fComb" onchange="render()"></select></div>
     <div class="filtro"><label for="fDist">Distribuidora</label><select id="fDist" onchange="render()"></select></div>
+  </div>
+
+  <div class="config" id="painelAdmin">
+    <div class="grupo">
+      <h2>Criar novo usuário</h2>
+      <div class="admin-form">
+        <input type="email" id="novoUsuarioEmail" placeholder="E-mail do funcionário">
+        <input type="text" id="novoUsuarioSenha" placeholder="Senha inicial (mín. 6 caracteres)">
+        <button class="btn-verde" onclick="criarUsuario()">Criar usuário</button>
+      </div>
+      <div class="msg-admin" id="msgAdmin"></div>
+    </div>
+    <div class="grupo">
+      <h2>Redefinir senha de um usuário</h2>
+      <div class="admin-form">
+        <input type="email" id="resetUsuarioEmail" placeholder="E-mail do usuário">
+        <button class="btn-verde" onclick="resetUsuario()">Enviar link de redefinição</button>
+      </div>
+      <div class="msg-admin" id="msgAdminReset"></div>
+    </div>
+    <div class="grupo">
+      <h2>Remover ou bloquear usuários</h2>
+      <a class="link-console" href="https://console.firebase.google.com/project/postos-full/authentication/users" target="_blank" rel="noopener">Abrir painel de usuários no Firebase ↗</a>
+    </div>
+  </div>
+
+  <div class="config" id="painelConfig">
+    <div class="grupo">
+      <h2>Postos</h2>
+      <div class="chips" id="chipsPosto"></div>
+      <div class="add-linha">
+        <input id="novoPosto" placeholder="Nome do novo posto" onkeydown="if(event.key==='Enter')adicionarItem('posto')">
+        <button class="btn-verde" onclick="adicionarItem('posto')">Adicionar posto</button>
+      </div>
+    </div>
+    <div class="grupo">
+      <h2>Distribuidoras</h2>
+      <div class="chips" id="chipsDistribuidora"></div>
+      <div class="add-linha">
+        <input id="novoDistribuidora" placeholder="Nome da nova distribuidora" onkeydown="if(event.key==='Enter')adicionarItem('distribuidora')">
+        <button class="btn-verde" onclick="adicionarItem('distribuidora')">Adicionar distribuidora</button>
+      </div>
+    </div>
+    <div class="grupo">
+      <h2>Frete padrão</h2>
+      <div class="frete-padrao">
+        <span>R$</span>
+        <input id="fretePadrao" inputmode="decimal" onchange="salvarFretePadrao(this)">
+        <span class="nota">Valor usado automaticamente em novos registros. O frete de cada linha continua editável na tabela.</span>
+      </div>
+    </div>
   </div>
 
   <div class="tabela-wrap">
@@ -182,22 +366,225 @@
   </div>
 
   <div class="rodape">
-    <span class="dica">Edite qualquer célula diretamente — tudo é salvo automaticamente neste dispositivo. Use "Salvar dados" (.json) como cópia de segurança ou para passar os dados para outro aparelho.</span>
+    <span class="dica">Edite qualquer célula diretamente — tudo é salvo automaticamente neste dispositivo. Em ⚙ Configurações você gerencia postos, distribuidoras e o frete padrão. Use "Salvar dados" (.json) como cópia de segurança.</span>
     <button class="btn-verde" onclick="novaLinha()">+ Adicionar registro</button>
   </div>
 
 </div>
 
 <script>
+/* ================== Autenticação (Firebase) ================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDrLMQkVGglzpjePhOJhMBqHWOfd4PnS2A",
+  authDomain: "postos-full.firebaseapp.com",
+  projectId: "postos-full",
+  storageBucket: "postos-full.firebasestorage.app",
+  messagingSenderId: "928545566820",
+  appId: "1:928545566820:web:3feb3938ced30a2eddef71"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+auth.languageCode = "pt";
+
+/* E-mails com acesso ao painel de usuários */
+const ADMINS = ["tiago.z5@gmail.com"];
+
+const ERROS_AUTH = {
+  "auth/invalid-credential": "E-mail ou senha incorretos.",
+  "auth/wrong-password": "E-mail ou senha incorretos.",
+  "auth/user-not-found": "Não existe usuário com esse e-mail.",
+  "auth/invalid-email": "Digite um e-mail válido.",
+  "auth/missing-password": "Digite a senha.",
+  "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos e tente de novo.",
+  "auth/network-request-failed": "Sem conexão. Verifique a internet e tente de novo.",
+  "auth/email-already-in-use": "Já existe um usuário com esse e-mail.",
+  "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
+  "auth/user-disabled": "Este usuário está bloqueado."
+};
+const msgErro = e => ERROS_AUTH[e.code] || ("Erro: " + (e.message || e.code || e));
+
+function avisoLogin(texto, tipo){
+  const el = document.getElementById("msgLogin");
+  el.textContent = texto;
+  el.className = "msg-login " + tipo;
+}
+
+function mostrarReset(){
+  document.getElementById("formEntrar").style.display = "none";
+  document.getElementById("formReset").style.display = "block";
+  document.getElementById("resetEmail").value = document.getElementById("loginEmail").value;
+  document.getElementById("msgLogin").className = "msg-login";
+}
+function mostrarEntrar(){
+  document.getElementById("formReset").style.display = "none";
+  document.getElementById("formEntrar").style.display = "block";
+  document.getElementById("msgLogin").className = "msg-login";
+}
+
+function entrar(){
+  const email = document.getElementById("loginEmail").value.trim();
+  const senha = document.getElementById("loginSenha").value;
+  if(!email || !senha){ avisoLogin("Preencha e-mail e senha.", "erro"); return; }
+  avisoLogin("Entrando...", "ok");
+  auth.signInWithEmailAndPassword(email, senha)
+    .then(()=>{ document.getElementById("loginSenha").value = ""; })
+    .catch(e => avisoLogin(msgErro(e), "erro"));
+}
+
+function enviarReset(){
+  const email = document.getElementById("resetEmail").value.trim();
+  if(!email){ avisoLogin("Digite o e-mail cadastrado.", "erro"); return; }
+  auth.sendPasswordResetEmail(email)
+    .then(()=> avisoLogin("Link enviado! Verifique a caixa de entrada (e o spam) de " + email + ".", "ok"))
+    .catch(e => avisoLogin(msgErro(e), "erro"));
+}
+
+function sair(){ auth.signOut(); }
+
+auth.onAuthStateChanged(usuario => {
+  const logado = !!usuario;
+  document.getElementById("telaLogin").style.display = logado ? "none" : "flex";
+  document.getElementById("appPrincipal").style.display = logado ? "block" : "none";
+  if (logado){
+    document.getElementById("usuarioLogado").textContent = usuario.email;
+    const ehAdmin = ADMINS.includes((usuario.email||"").toLowerCase());
+    document.getElementById("btnUsuarios").style.display = ehAdmin ? "" : "none";
+    render();
+  }
+});
+
+/* ---------- Painel de administração ---------- */
+function alternarAdmin(){
+  document.getElementById("painelAdmin").classList.toggle("aberto");
+}
+
+function avisoAdmin(id, texto, tipo){
+  const el = document.getElementById(id);
+  el.textContent = texto;
+  el.className = "msg-admin " + tipo;
+}
+
+function criarUsuario(){
+  const email = document.getElementById("novoUsuarioEmail").value.trim();
+  const senha = document.getElementById("novoUsuarioSenha").value;
+  if(!email || !senha){ avisoAdmin("msgAdmin", "Preencha e-mail e senha inicial.", "erro"); return; }
+  // App secundário: cria o usuário sem derrubar a sessão do administrador
+  const sec = firebase.apps.find(a => a.name === "secundario") || firebase.initializeApp(firebaseConfig, "secundario");
+  sec.auth().createUserWithEmailAndPassword(email, senha)
+    .then(()=>{
+      sec.auth().signOut();
+      document.getElementById("novoUsuarioEmail").value = "";
+      document.getElementById("novoUsuarioSenha").value = "";
+      avisoAdmin("msgAdmin", "Usuário " + email + " criado! Passe a senha inicial para ele — no primeiro acesso, ele pode trocá-la em \"Esqueci minha senha\".", "ok");
+    })
+    .catch(e => avisoAdmin("msgAdmin", msgErro(e), "erro"));
+}
+
+function resetUsuario(){
+  const email = document.getElementById("resetUsuarioEmail").value.trim();
+  if(!email){ avisoAdmin("msgAdminReset", "Digite o e-mail do usuário.", "erro"); return; }
+  auth.sendPasswordResetEmail(email)
+    .then(()=> avisoAdmin("msgAdminReset", "Link de redefinição enviado para " + email + ".", "ok"))
+    .catch(e => avisoAdmin("msgAdminReset", msgErro(e), "erro"));
+}
+
 /* ================== Opções das listas suspensas ==================
-   Edite livremente estes arrays para incluir seus postos,
-   formas de pagamento, combustíveis e distribuidoras.          */
+   Forma e Combustível são fixas; Postos e Distribuidoras são
+   gerenciáveis pelo painel ⚙ Configurações e ficam salvas.      */
 const OPCOES = {
-  posto:        ["Dutra","Matriz","Filial"],
   forma:        ["Á Vista","Prazo"],
-  combustivel:  ["Diesel S-10","Diesel S-500","Gasolina Comum","Gasolina Aditivada","Etanol"],
+  combustivel:  ["Diesel S-10","Diesel S-500","Gasolina Comum","Gasolina Aditivada","Etanol"]
+};
+
+const CHAVE_LISTAS = "margens_combustiveis_listas";
+const CHAVE_FRETE  = "margens_combustiveis_frete_padrao";
+const LISTAS_PADRAO = {
+  posto:        ["Dutra","Matriz","Filial"],
   distribuidora:["Petrobahia","Vibra","Ipiranga","Raízen"]
 };
+
+let listas;
+try { listas = JSON.parse(localStorage.getItem(CHAVE_LISTAS)) || null; } catch { listas = null; }
+if (!listas || !Array.isArray(listas.posto) || !Array.isArray(listas.distribuidora)) {
+  listas = JSON.parse(JSON.stringify(LISTAS_PADRAO));
+}
+
+let fretePadrao = 0;
+try { const f = parseFloat(localStorage.getItem(CHAVE_FRETE)); if (isFinite(f)) fretePadrao = f; } catch {}
+
+function opcoesDe(chave){
+  if (chave in listas) return listas[chave];
+  return OPCOES[chave];
+}
+
+function persistirListas(){
+  try {
+    localStorage.setItem(CHAVE_LISTAS, JSON.stringify(listas));
+    localStorage.setItem(CHAVE_FRETE, String(fretePadrao));
+  } catch {}
+}
+
+/* ---------- Painel de configurações ---------- */
+function alternarConfig(){
+  document.getElementById("painelConfig").classList.toggle("aberto");
+  renderConfig();
+}
+
+let confirmarRemocao = null;   // {chave, i} aguardando o segundo toque
+
+function renderConfig(){
+  [["posto","chipsPosto"],["distribuidora","chipsDistribuidora"]].forEach(([chave,idChips])=>{
+    document.getElementById(idChips).innerHTML = listas[chave].map((v,i)=>{
+      const pendente = confirmarRemocao && confirmarRemocao.chave===chave && confirmarRemocao.i===i;
+      const botao = pendente
+        ? `<button class="confirmar" onclick="removerItem('${chave}',${i})">✓ confirmar?</button>`
+        : `<button title="Remover ${v}" onclick="pedirRemocao('${chave}',${i})">✕</button>`;
+      return `<span class="chip${pendente?" alerta":""}">${v}${botao}</span>`;
+    }).join("") || '<span class="nota" style="font-size:.8rem;color:var(--cinza)">Nenhum item — adicione abaixo.</span>';
+  });
+  const fp = document.getElementById("fretePadrao");
+  if (fp) fp.value = fretePadrao.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4});
+}
+
+let timerRemocao = null;
+function pedirRemocao(chave, i){
+  confirmarRemocao = {chave, i};
+  renderConfig();
+  clearTimeout(timerRemocao);
+  timerRemocao = setTimeout(()=>{ confirmarRemocao = null; renderConfig(); }, 4000);
+}
+
+function adicionarItem(chave){
+  const campo = document.getElementById(chave === "posto" ? "novoPosto" : "novoDistribuidora");
+  const nome = campo.value.trim();
+  if (!nome) return;
+  if (listas[chave].some(v => v.toLowerCase() === nome.toLowerCase())){
+    campo.value = "";
+    campo.placeholder = "Esse item já está na lista";
+    setTimeout(()=>{ campo.placeholder = chave === "posto" ? "Nome do novo posto" : "Nome da nova distribuidora"; }, 2500);
+    return;
+  }
+  listas[chave].push(nome);
+  campo.value = "";
+  persistirListas();
+  renderConfig();
+  render();
+}
+
+function removerItem(chave, i){
+  clearTimeout(timerRemocao);
+  confirmarRemocao = null;
+  listas[chave].splice(i,1);
+  persistirListas();
+  renderConfig();
+  render();
+}
+
+function salvarFretePadrao(el){
+  fretePadrao = lerNum(el.value);
+  persistirListas();
+  renderConfig();
+}
 
 /* ================== Dados (com salvamento automático) ================== */
 const CHAVE = "margens_combustiveis_dados";
@@ -261,7 +648,7 @@ function montarFiltros(){
   cfg.forEach(([id,chave])=>{
     const sel = document.getElementById(id);
     const atual = sel.value || "Todos";
-    const valores = [...new Set([...OPCOES[chave], ...registros.map(r=>r[chave])])].filter(Boolean);
+    const valores = [...new Set([...opcoesDe(chave), ...registros.map(r=>r[chave])])].filter(Boolean);
     sel.innerHTML = '<option>Todos</option>' + valores.map(v=>`<option${v===atual?" selected":""}>${v}</option>`).join("");
   });
 }
@@ -278,7 +665,7 @@ function filtrar(r){
 
 /* ================== Renderização ================== */
 function selectHTML(chave, valorAtual, idx){
-  const valores = [...new Set([...OPCOES[chave], valorAtual])].filter(Boolean);
+  const valores = [...new Set([...opcoesDe(chave), valorAtual])].filter(Boolean);
   return `<select onchange="atualizar(${idx},'${chave}',this.value)">` +
     valores.map(v=>`<option${v===valorAtual?" selected":""}>${v}</option>`).join("") + "</select>";
 }
@@ -309,7 +696,9 @@ function render(){
       <td class="calc${m.cfR<0?" neg":""}">${fmtRS(m.cfR)}</td>
       <td class="calc${m.cfP<0?" neg":""}">${fmtPct(m.cfP)}</td>
       <td>${selectHTML("distribuidora", r.distribuidora, i)}</td>
-      <td><button class="btn-excluir" title="Excluir registro" onclick="excluir(${i})">✕</button></td>
+      <td>${confirmarExclusaoLinha===i
+        ? `<button class="btn-excluir confirmar" title="Toque para confirmar" onclick="excluir(${i})">✓?</button>`
+        : `<button class="btn-excluir" title="Excluir registro" onclick="excluir(${i})">✕</button>`}</td>
     </tr>`;
   }).join("");
 
@@ -338,18 +727,31 @@ function novaLinha(){
   const base = registros[registros.length-1];
   registros.push({
     data: new Date().toISOString().slice(0,10),
-    posto: base ? base.posto : OPCOES.posto[0],
+    posto: base ? base.posto : (listas.posto[0] || ""),
     forma: base ? base.forma : OPCOES.forma[0],
     combustivel: base ? base.combustivel : OPCOES.combustivel[0],
-    custo:0, frete:0, venda:0,
-    distribuidora: base ? base.distribuidora : OPCOES.distribuidora[0]
+    custo:0, frete:fretePadrao, venda:0,
+    distribuidora: base ? base.distribuidora : (listas.distribuidora[0] || "")
   });
   persistir();
   render();
 }
 
+let confirmarExclusaoLinha = null;
+let timerExclusaoLinha = null;
 function excluir(i){
-  if(confirm("Excluir este registro?")){ registros.splice(i,1); persistir(); render(); }
+  if (confirmarExclusaoLinha === i){
+    clearTimeout(timerExclusaoLinha);
+    confirmarExclusaoLinha = null;
+    registros.splice(i,1);
+    persistir();
+    render();
+  } else {
+    confirmarExclusaoLinha = i;
+    render();
+    clearTimeout(timerExclusaoLinha);
+    timerExclusaoLinha = setTimeout(()=>{ confirmarExclusaoLinha = null; render(); }, 4000);
+  }
 }
 
 /* ================== Salvar / Carregar / Exportar ================== */

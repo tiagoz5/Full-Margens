@@ -1,5 +1,5 @@
 // Service worker — cache para funcionamento offline
-const CACHE = "margens-v1";
+const CACHE = "margens-v4";
 const ARQUIVOS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
