@@ -1,5 +1,5 @@
 // Service worker — cache para funcionamento offline
-const CACHE = "postos-full-v20";
+const CACHE = "postos-full-v21";
 const ARQUIVOS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./logo-full.png"];
 
 self.addEventListener("install", e => {
@@ -18,6 +18,8 @@ self.addEventListener("activate", e => {
 
 // Estratégia: rede primeiro (pega atualizações), cache como reserva (offline)
 self.addEventListener("fetch", e => {
+  // Não interceptar chamadas externas (Firebase/Firestore/Google Fonts)
+  if (!e.request.url.startsWith(self.location.origin)) return;
   e.respondWith(
     fetch(e.request)
       .then(resp => {

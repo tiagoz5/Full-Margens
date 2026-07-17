@@ -16,6 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
   :root{
     /* Identidade visual Postos Full */
@@ -481,6 +482,15 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 auth.languageCode = "pt";
 
+/* Firestore com cache offline (sincroniza sozinho quando a conexão volta) */
+const db = firebase.firestore();
+try { db.enablePersistence({ synchronizeTabs: true }).catch(()=>{}); } catch {}
+const colLancamentos = db.collection("lancamentos");
+const docConfig = db.collection("config").doc("geral");
+let nuvemPronta = false;        // já recebemos o primeiro retrato da nuvem?
+let escutaLancamentos = null;   // cancelador do listener em tempo real
+let escutaConfig = null;
+
 /* E-mails com acesso ao painel de usuários */
 const ADMINS = ["tiago.z5@gmail.com"];
 
@@ -544,7 +554,12 @@ auth.onAuthStateChanged(usuario => {
     document.getElementById("usuarioLogado").textContent = usuario.email;
     const ehAdmin = ADMINS.includes((usuario.email||"").toLowerCase());
     document.getElementById("btnUsuarios").style.display = ehAdmin ? "" : "none";
+    iniciarSync();
     render();
+  } else {
+    if (escutaLancamentos){ escutaLancamentos(); escutaLancamentos = null; }
+    if (escutaConfig){ escutaConfig(); escutaConfig = null; }
+    nuvemPronta = false;
   }
 });
 
@@ -617,6 +632,10 @@ function persistirListas(){
     localStorage.setItem(CHAVE_LISTAS, JSON.stringify(listas));
     localStorage.setItem(CHAVE_FRETE, String(fretePadrao));
   } catch {}
+  // Configurações compartilhadas na nuvem
+  if (nuvemPronta){
+    docConfig.set({ listas, fretePadrao }).catch(()=>{});
+  }
 }
 
 /* ---------- Painel de configurações ---------- */
@@ -695,21 +714,89 @@ if (!Array.isArray(registros) || !registros.length) {
       custo:6.10, frete:0.20, venda:6.67, distribuidora:"Petrobahia" }
   ];
 }
+// Garante um id estável em cada registro (necessário para virar documento na nuvem)
+registros.forEach(r => { if (!r.id) r.id = "l_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2,8); });
 
 let avisoSalvo = null;
-function persistir(){
-  try {
-    localStorage.setItem(CHAVE, JSON.stringify(registros));
-    const el = document.getElementById("statusSalvo");
-    if (el){
-      el.textContent = "✓ Salvo no dispositivo";
-      el.style.opacity = "1";
-      clearTimeout(avisoSalvo);
-      avisoSalvo = setTimeout(()=>{ el.style.opacity = "0"; }, 2000);
+function statusSync(txto){
+  const el = document.getElementById("statusSalvo");
+  if (!el) return;
+  el.textContent = txto;
+  el.style.opacity = "1";
+  clearTimeout(avisoSalvo);
+  if (txto.startsWith("✓")) avisoSalvo = setTimeout(()=>{ el.style.opacity = "0"; }, 2000);
+}
+
+/* Cache local (funciona offline e enquanto a nuvem carrega) */
+function salvarCache(){
+  try { localStorage.setItem(CHAVE, JSON.stringify(registros)); } catch {}
+}
+
+/* Grava/atualiza um único lançamento na nuvem */
+function salvarRegistro(r){
+  if (!r.id) r.id = novoId();
+  salvarCache();
+  if (!nuvemPronta){ return; }   // ainda offline/carregando — cache já guardou
+  statusSync("Sincronizando…");
+  const { id, ...dados } = r;
+  colLancamentos.doc(id).set(dados)
+    .then(()=> statusSync("✓ Sincronizado"))
+    .catch(()=> statusSync("✓ Salvo no aparelho (sincroniza ao reconectar)"));
+}
+
+/* Remove um lançamento da nuvem */
+function removerRegistroNuvem(id){
+  if (!id || !nuvemPronta) return;
+  colLancamentos.doc(id).delete().catch(()=>{});
+}
+
+/* Compatibilidade: chamadas antigas a persistir() agora só atualizam o cache
+   (usado em operações em massa; a gravação fina fica por conta de salvarRegistro) */
+function persistir(){ salvarCache(); }
+
+/* ---------- Sincronização em tempo real ---------- */
+function iniciarSync(){
+  if (escutaLancamentos) return;  // já ativo
+  // Configurações compartilhadas
+  escutaConfig = docConfig.onSnapshot(snap => {
+    if (snap.exists){
+      const d = snap.data();
+      if (d.listas && Array.isArray(d.listas.posto) && Array.isArray(d.listas.distribuidora)) listas = d.listas;
+      if (isFinite(d.fretePadrao)) fretePadrao = d.fretePadrao;
+      try {
+        localStorage.setItem(CHAVE_LISTAS, JSON.stringify(listas));
+        localStorage.setItem(CHAVE_FRETE, String(fretePadrao));
+      } catch {}
+      renderConfig();
+      render();
     }
-  } catch {
-    /* armazenamento indisponível — os botões Salvar/Carregar continuam como reserva */
-  }
+  }, ()=>{});
+
+  // Lançamentos
+  escutaLancamentos = colLancamentos.onSnapshot(async snap => {
+    const daNuvem = [];
+    snap.forEach(doc => daNuvem.push({ id: doc.id, ...doc.data() }));
+
+    // Primeira carga: se a nuvem está vazia e há dados locais, migra para a nuvem
+    if (!nuvemPronta && daNuvem.length === 0 && registros.length && registros.some(r => r.data)){
+      nuvemPronta = true;
+      statusSync("Enviando seus dados para a nuvem…");
+      const lote = db.batch();
+      registros.forEach(r => {
+        if (!r.id) r.id = novoId();
+        const { id, ...dados } = r;
+        lote.set(colLancamentos.doc(id), dados);
+      });
+      lote.commit().then(()=> statusSync("✓ Dados enviados para a nuvem")).catch(()=>{});
+      return; // o próprio commit dispara novo snapshot com os dados já na nuvem
+    }
+
+    nuvemPronta = true;
+    registros = daNuvem.sort((a,b)=>(a.data||"9999-99-99").localeCompare(b.data||"9999-99-99"));
+    salvarCache();
+    statusSync("✓ Sincronizado");
+    render();
+  }, ()=>{ statusSync("Modo offline — sincroniza ao reconectar"); });
 }
 
 /* ================== Formatação BR ================== */
@@ -819,20 +906,23 @@ function render(){
 }
 
 /* ================== Ações ================== */
-function atualizar(i, chave, valor){ registros[i][chave] = valor; persistir(); render(); }
-function atualizarNum(i, chave, el){ registros[i][chave] = lerNum(el.value); persistir(); render(); }
+function novoId(){ return "l_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2,8); }
+function atualizar(i, chave, valor){ registros[i][chave] = valor; salvarRegistro(registros[i]); render(); }
+function atualizarNum(i, chave, el){ registros[i][chave] = lerNum(el.value); salvarRegistro(registros[i]); render(); }
 
 function novaLinha(){
   const base = registros[registros.length-1];
-  registros.push({
+  const novo = {
+    id: novoId(),
     data: new Date().toISOString().slice(0,10),
     posto: base ? base.posto : (listas.posto[0] || ""),
     forma: base ? base.forma : OPCOES.forma[0],
     combustivel: base ? base.combustivel : OPCOES.combustivel[0],
     custo:0, frete:fretePadrao, venda:0,
     distribuidora: base ? base.distribuidora : (listas.distribuidora[0] || "")
-  });
-  persistir();
+  };
+  registros.push(novo);
+  salvarRegistro(novo);
   render();
 }
 
@@ -842,8 +932,9 @@ function excluir(i){
   if (confirmarExclusaoLinha === i){
     clearTimeout(timerExclusaoLinha);
     confirmarExclusaoLinha = null;
-    registros.splice(i,1);
-    persistir();
+    const removido = registros.splice(i,1)[0];
+    if (removido && removido.id) removerRegistroNuvem(removido.id);
+    salvarCache();
     render();
   } else {
     confirmarExclusaoLinha = i;
