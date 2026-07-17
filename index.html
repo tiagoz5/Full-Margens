@@ -213,7 +213,8 @@
   /* ---------- Painel de registros ---------- */
   #painelRegistros{display:none}
   #painelRegistros.aberto{display:block}
-  #btnRegistros.ativo{box-shadow:0 0 0 2px var(--verde) inset;color:var(--verde)}
+  #btnRegistros.ativo,
+  header .acoes button.ativo{box-shadow:0 0 0 2px var(--verde) inset;color:var(--verde)}
 
   /* ---------- Histórico / Sincronização ---------- */
   .barra-sync{
@@ -623,7 +624,9 @@ auth.onAuthStateChanged(usuario => {
 
 /* ---------- Painel de administração ---------- */
 function alternarAdmin(){
-  document.getElementById("painelAdmin").classList.toggle("aberto");
+  const aberto = abrirPainelExclusivo("painelAdmin");
+  const bu = document.getElementById("btnUsuarios");
+  if (bu) bu.classList.toggle("ativo", aberto);
 }
 
 function avisoAdmin(id, texto, tipo){
@@ -698,8 +701,10 @@ function persistirListas(){
 
 /* ---------- Painel de configurações ---------- */
 function alternarConfig(){
-  document.getElementById("painelConfig").classList.toggle("aberto");
-  renderConfig();
+  const aberto = abrirPainelExclusivo("painelConfig");
+  const bc = document.getElementById("btnConfig");
+  if (bc) bc.classList.toggle("ativo", aberto);
+  if (aberto) renderConfig();
 }
 
 let confirmarRemocao = null;   // {chave, i} aguardando o segundo toque
@@ -1066,8 +1071,35 @@ function excluir(i){
 }
 
 /* ================== Salvar / Carregar / Exportar ================== */
+// Painéis que ocupam a página; só um fica aberto por vez
+const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelConfig","painelAdmin"];
+function fecharTodosPaineis(exceto){
+  PAINEIS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && id !== exceto) el.classList.remove("aberto");
+  });
+  // Atualiza o destaque dos botões correspondentes
+  document.getElementById("btnRegistros").classList.toggle("ativo",
+    document.getElementById("painelRegistros").classList.contains("aberto"));
+  const bh = document.getElementById("btnHistorico");
+  if (bh) bh.classList.toggle("ativo", document.getElementById("painelHistorico").classList.contains("aberto"));
+  const bc = document.getElementById("btnConfig");
+  if (bc) bc.classList.toggle("ativo", document.getElementById("painelConfig").classList.contains("aberto"));
+  const bu = document.getElementById("btnUsuarios");
+  if (bu) bu.classList.toggle("ativo", document.getElementById("painelAdmin").classList.contains("aberto"));
+}
+
+// Abre um painel fechando os demais; se já estava aberto, apenas fecha (liga/desliga)
+function abrirPainelExclusivo(id){
+  const el = document.getElementById(id);
+  const jaAberto = el.classList.contains("aberto");
+  fecharTodosPaineis();
+  if (!jaAberto) el.classList.add("aberto");
+  return !jaAberto;
+}
+
 function alternarRegistros(){
-  document.getElementById("painelRegistros").classList.toggle("aberto");
+  abrirPainelExclusivo("painelRegistros");
   atualizarBotaoRegistros();
 }
 function atualizarBotaoRegistros(){
@@ -1077,10 +1109,9 @@ function atualizarBotaoRegistros(){
 
 /* ================== Histórico de modificações ================== */
 function alternarHistorico(){
-  const p = document.getElementById("painelHistorico");
-  p.classList.toggle("aberto");
-  document.getElementById("btnHistorico").classList.toggle("ativo", p.classList.contains("aberto"));
-  if (p.classList.contains("aberto")) renderHistorico();
+  const aberto = abrirPainelExclusivo("painelHistorico");
+  document.getElementById("btnHistorico").classList.toggle("ativo", aberto);
+  if (aberto) renderHistorico();
 }
 
 function renderHistorico(){
@@ -1126,9 +1157,7 @@ function desfazerHistorico(idHist){
 
 /* ================== Dashboard: evolução do preço de compra ================== */
 function alternarDash(){
-  const p = document.getElementById("painelDash");
-  p.classList.toggle("aberto");
-  if (p.classList.contains("aberto")) renderDashboard();
+  if (abrirPainelExclusivo("painelDash")) renderDashboard();
 }
 
 const fmtBR = (v, casas=2) => v.toLocaleString("pt-BR",{minimumFractionDigits:casas,maximumFractionDigits:casas});
