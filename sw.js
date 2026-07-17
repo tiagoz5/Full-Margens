@@ -1,5 +1,5 @@
 // Service worker — cache para funcionamento offline
-const CACHE = "postos-full-v34";
+const CACHE = "postos-full-v35";
 const ARQUIVOS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./logo-full.png"];
 
 self.addEventListener("install", e => {

@@ -216,6 +216,33 @@
   #btnRegistros.ativo,
   header .acoes button.ativo{box-shadow:0 0 0 2px var(--verde) inset;color:var(--verde)}
 
+  /* ---------- Simular Margens ---------- */
+  .sim-campos{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 4px}
+  .sim-campo{display:flex;flex-direction:column;gap:5px;flex:1;min-width:150px}
+  .sim-campo label{
+    font-family:"Oswald","Poppins",sans-serif;font-size:.74rem;
+    text-transform:uppercase;letter-spacing:.5px;color:var(--grafite);
+  }
+  .sim-campo input{
+    padding:11px 12px;border:1px solid var(--borda);border-radius:8px;
+    font-size:1rem;text-align:right;font-variant-numeric:tabular-nums;
+  }
+  .sim-campo input:focus{outline:2px solid var(--verde);outline-offset:-1px}
+  .sim-resultados{display:flex;gap:16px;flex-wrap:wrap;margin-top:18px}
+  .sim-bloco{
+    flex:1;min-width:220px;background:#F7F7F7;border:1px solid var(--borda);
+    border-left:4px solid var(--verde);border-radius:10px;padding:14px 16px;
+  }
+  .sim-bloco h4{
+    font-family:"Oswald","Poppins",sans-serif;font-size:.82rem;
+    text-transform:uppercase;letter-spacing:.6px;color:var(--grafite);margin-bottom:10px;
+  }
+  .sim-linha{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:4px 0}
+  .sim-linha .rot{font-size:.82rem;color:var(--cinza)}
+  .sim-linha .val{font-size:1.35rem;font-weight:700;color:var(--grafite);font-variant-numeric:tabular-nums}
+  .sim-linha .val.neg{color:var(--vermelho)}
+  .sim-vazio{padding:18px;text-align:center;color:var(--cinza);font-style:italic}
+
   /* ---------- Histórico / Sincronização ---------- */
   .barra-sync{
     display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -422,6 +449,7 @@
       <button class="btn-claro" id="btnRegistros" onclick="alternarRegistros()">📋 Lançamentos</button>
       <button class="btn-claro" id="btnDash" onclick="alternarDash()">📈 Dashboard</button>
       <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()">🕐 Histórico</button>
+      <button class="btn-claro" id="btnSimular" onclick="alternarSimular()">🧮 Simular Margens</button>
       <button class="btn-claro" onclick="exportarPDF()">📄 Exportar PDF</button>
       <button class="btn-claro" onclick="window.print()">🖨️ Imprimir</button>
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
@@ -437,6 +465,28 @@
     <div class="filtro"><label for="fForma">Forma</label><select id="fForma" onchange="render()"></select></div>
     <div class="filtro"><label for="fComb">Combustível</label><select id="fComb" onchange="render()"></select></div>
     <div class="filtro"><label for="fDist">Distribuidora</label><select id="fDist" onchange="render()"></select></div>
+  </div>
+
+  <div class="config" id="painelSimular">
+    <div class="grupo">
+      <h2>Simular margens</h2>
+      <p class="nota-dash">Preencha os valores para calcular a margem na hora, sem precisar criar um lançamento. Ideal para testar cenários de preço.</p>
+      <div class="sim-campos">
+        <div class="sim-campo">
+          <label for="simCusto">Preço de compra (R$)</label>
+          <input type="number" id="simCusto" inputmode="decimal" step="0.001" placeholder="0,00" oninput="calcularSimulacao()">
+        </div>
+        <div class="sim-campo">
+          <label for="simFrete">Custo do frete (R$)</label>
+          <input type="number" id="simFrete" inputmode="decimal" step="0.001" placeholder="0,00" oninput="calcularSimulacao()">
+        </div>
+        <div class="sim-campo">
+          <label for="simVenda">Preço de venda (R$)</label>
+          <input type="number" id="simVenda" inputmode="decimal" step="0.001" placeholder="0,00" oninput="calcularSimulacao()">
+        </div>
+      </div>
+      <div class="sim-resultados" id="simResultados"></div>
+    </div>
   </div>
 
   <div class="config" id="painelHistorico">
@@ -1096,7 +1146,7 @@ function excluir(i){
 
 /* ================== Salvar / Carregar / Exportar ================== */
 // Painéis que ocupam a página; só um fica aberto por vez
-const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelConfig","painelAdmin"];
+const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelConfig","painelAdmin"];
 function fecharTodosPaineis(exceto){
   PAINEIS.forEach(id => {
     const el = document.getElementById(id);
@@ -1113,6 +1163,8 @@ function fecharTodosPaineis(exceto){
   if (bu) bu.classList.toggle("ativo", document.getElementById("painelAdmin").classList.contains("aberto"));
   const bd = document.getElementById("btnDash");
   if (bd) bd.classList.toggle("ativo", document.getElementById("painelDash").classList.contains("aberto"));
+  const bs = document.getElementById("btnSimular");
+  if (bs) bs.classList.toggle("ativo", document.getElementById("painelSimular").classList.contains("aberto"));
 }
 
 // Abre um painel fechando os demais; se já estava aberto, apenas fecha (liga/desliga)
@@ -1182,6 +1234,48 @@ function desfazerHistorico(idHist){
 }
 
 /* ================== Dashboard: evolução do preço de compra ================== */
+/* ================== Simular Margens ================== */
+function alternarSimular(){
+  const aberto = abrirPainelExclusivo("painelSimular");
+  const bs = document.getElementById("btnSimular");
+  if (bs) bs.classList.toggle("ativo", aberto);
+  if (aberto) calcularSimulacao();
+}
+
+function calcularSimulacao(){
+  const num = id => {
+    const v = parseFloat((document.getElementById(id).value || "").replace(",", "."));
+    return isFinite(v) ? v : 0;
+  };
+  const custo = num("simCusto");
+  const frete = num("simFrete");
+  const venda = num("simVenda");
+  const alvo = document.getElementById("simResultados");
+
+  if (custo <= 0 && venda <= 0 && frete <= 0){
+    alvo.innerHTML = '<div class="sim-vazio">Preencha os valores acima para ver a margem.</div>';
+    return;
+  }
+
+  // Mesma fórmula dos lançamentos
+  const m = margens({ custo, frete, venda });
+  const cls = v => v < 0 ? " neg" : "";
+  const rs = v => isFinite(v) ? "R$ " + fmtBR(v, 3) : "—";
+  const pc = v => isFinite(v) ? fmtBR(v, 2) + "%" : "—";
+
+  alvo.innerHTML = `
+    <div class="sim-bloco">
+      <h4>Margem sem frete</h4>
+      <div class="sim-linha"><span class="rot">Em reais</span><span class="val${cls(m.sfR)}">${rs(m.sfR)}</span></div>
+      <div class="sim-linha"><span class="rot">Em percentual</span><span class="val${cls(m.sfP)}">${pc(m.sfP)}</span></div>
+    </div>
+    <div class="sim-bloco">
+      <h4>Margem com frete</h4>
+      <div class="sim-linha"><span class="rot">Em reais</span><span class="val${cls(m.cfR)}">${rs(m.cfR)}</span></div>
+      <div class="sim-linha"><span class="rot">Em percentual</span><span class="val${cls(m.cfP)}">${pc(m.cfP)}</span></div>
+    </div>`;
+}
+
 function alternarDash(){
   const aberto = abrirPainelExclusivo("painelDash");
   const bd = document.getElementById("btnDash");
