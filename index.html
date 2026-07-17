@@ -308,9 +308,17 @@
     border-radius:8px;padding:8px 14px;
   }
   .resumo-dash .cartao-kpi b{display:block;font-size:1.05rem;color:var(--grafite)}
+  .resumo-dash .cartao-kpi b small{font-size:.72rem;color:var(--cinza);font-weight:600}
   .resumo-dash .cartao-kpi span{font-size:.72rem;color:var(--cinza);text-transform:uppercase;letter-spacing:.4px}
   .resumo-dash .sobe{color:var(--vermelho)}
   .resumo-dash .desce{color:#1B7A3D}
+  .dash-duplo{display:flex;gap:18px;flex-wrap:wrap}
+  .dash-card{flex:1 1 380px;min-width:0}
+  .dash-card > h4{
+    font-family:"Oswald","Poppins",sans-serif;font-size:.86rem;font-weight:500;
+    text-transform:uppercase;letter-spacing:.5px;color:var(--grafite);
+    margin:0 0 8px;padding-bottom:5px;border-bottom:2px solid var(--verde);
+  }
   .grafico-dash{overflow-x:auto;border:1px solid var(--borda);border-radius:8px;background:#fff;padding:8px}
   .grafico-dash svg{display:block}
   .nota-dash{font-size:.74rem;color:var(--cinza);font-style:italic;margin-top:8px}
@@ -523,9 +531,9 @@
 
   <div class="config" id="painelDash">
     <div class="grupo">
-      <h2>Evolução do preço de compra</h2>
+      <h2>Evolução de preços e margens</h2>
       <div id="conteudoDash"></div>
-      <p class="nota-dash">Um gráfico para cada combustível com lançamentos no período dos filtros Data Inicial e Data Final acima (que já vêm preenchidos do dia 1º do mês atual até hoje, mas podem ser alterados). Cada ponto é a média do preço de custo lançado na data, respeitando também o filtro de Posto. Os valores em vermelho/verde mostram quantos centavos o preço subiu ou caiu em relação ao lançamento anterior.</p>
+      <p class="nota-dash">Para cada combustível, dois gráficos lado a lado: a <b>Evolução do preço de compra</b> e a <b>Evolução da margem</b> (calculada com preço de compra, custo do frete e preço de venda dos lançamentos). Cada ponto é a média na data, respeitando os filtros de Data e Posto. No preço de compra, vermelho = subiu (ruim); na margem, verde = subiu (bom).</p>
     </div>
   </div>
 
@@ -1489,31 +1497,71 @@ function dadosDashboard(comb){
   }));
 }
 
-function resumoHTML(pontos){
-  const primeiro = pontos[0].custo, ultimo = pontos[pontos.length-1].custo;
+// Dados da evolução da margem (usa custo + frete + venda dos lançamentos)
+function dadosDashboardMargem(comb){
+  const dIni = document.getElementById("fDataIni").value;
+  const dFim = document.getElementById("fDataFim").value;
+  const posto = document.getElementById("fPosto").value;
+  const porData = {};
+  registros.forEach(r => {
+    if (r.combustivel !== comb) return;
+    if (dIni && r.data < dIni) return;
+    if (dFim && r.data > dFim) return;
+    if (posto && posto !== "Todos" && r.posto !== posto) return;
+    if (!(r.custo > 0) || !(r.venda > 0) || !r.data) return;
+    const frete = isFinite(r.frete) ? r.frete : 0;
+    const m = margens({ custo: r.custo, frete, venda: r.venda });
+    (porData[r.data] = porData[r.data] || []).push(m);
+  });
+  return Object.keys(porData).sort().map(d => {
+    const arr = porData[d];
+    return {
+      data: d,
+      margem:  arr.reduce((a,b)=>a+b.cfR,0) / arr.length,   // margem em R$ (com frete)
+      margemP: arr.reduce((a,b)=>a+b.cfP,0) / arr.length    // margem em %
+    };
+  });
+}
+
+function resumoLinha(pontos, campo, rotuloUltimo, inverterCor, sufixoUltimo){
+  const primeiro = pontos[0][campo], ultimo = pontos[pontos.length-1][campo];
   const variacao = ultimo - primeiro;
-  const classe = variacao > 0.0001 ? "sobe" : variacao < -0.0001 ? "desce" : "";
+  // Custo: subir é ruim (vermelho). Margem (inverterCor): subir é bom (verde).
+  let classe = "";
+  if (variacao > 0.0001)      classe = inverterCor ? "desce" : "sobe";
+  else if (variacao < -0.0001) classe = inverterCor ? "sobe" : "desce";
   const seta = variacao > 0.0001 ? "▲ subiu" : variacao < -0.0001 ? "▼ caiu" : "estável";
   const centavos = Math.round(Math.abs(variacao) * 100);
   let valorVar = "";
   if (centavos > 0){
     valorVar = centavos >= 100
-      ? " R$ " + fmtBR(centavos / 100, 2)                       // 100¢ ou mais → R$ 1,00
-      : " " + centavos + " centavo" + (centavos > 1 ? "s" : ""); // até 99¢ → em centavos
+      ? " R$ " + fmtBR(centavos / 100, 2)
+      : " " + centavos + " centavo" + (centavos > 1 ? "s" : "");
   }
   return `
-    <div class="cartao-kpi"><span>Último custo</span><b>R$ ${fmtBR(ultimo, 3)}</b></div>
+    <div class="cartao-kpi"><span>${rotuloUltimo}</span><b>R$ ${fmtBR(ultimo, 3)}${sufixoUltimo || ""}</b></div>
     <div class="cartao-kpi"><span>Variação no período</span>
       <b class="${classe}">${seta}${valorVar}</b></div>
     <div class="cartao-kpi"><span>Menor / Maior</span>
-      <b>R$ ${fmtBR(Math.min(...pontos.map(p=>p.custo)),3)} / R$ ${fmtBR(Math.max(...pontos.map(p=>p.custo)),3)}</b></div>`;
+      <b>R$ ${fmtBR(Math.min(...pontos.map(p=>p[campo])),3)} / R$ ${fmtBR(Math.max(...pontos.map(p=>p[campo])),3)}</b></div>`;
 }
 
-function graficoSVG(pontos){
+function resumoHTML(pontos){
+  return resumoLinha(pontos, "custo", "Último custo", false);
+}
+
+function resumoMargemHTML(pontos){
+  const ultimoP = pontos[pontos.length-1].margemP;
+  const suf = isFinite(ultimoP) ? ` <small>(${fmtBR(ultimoP,2)}%)</small>` : "";
+  return resumoLinha(pontos, "margem", "Última margem", true, suf);
+}
+
+function graficoSVG(pontos, campo, inverterCor){
+  campo = campo || "custo";
   const H = 300, mT = 24, mB = 46, mL = 62, mR = 24;
   const passoX = Math.max(70, 640 / Math.max(pontos.length-1, 1));
   const W = Math.max(680, mL + mR + passoX * (pontos.length-1));
-  const vals = pontos.map(p=>p.custo);
+  const vals = pontos.map(p=>p[campo]);
   let vMin = Math.min(...vals), vMax = Math.max(...vals);
   if (vMax - vMin < 0.05){ const meio=(vMax+vMin)/2; vMin=meio-0.05; vMax=meio+0.05; }
   const folga = (vMax - vMin) * 0.15; vMin -= folga; vMax += folga;
@@ -1526,20 +1574,22 @@ function graficoSVG(pontos){
     s += `<line x1="${mL}" y1="${y}" x2="${W-mR}" y2="${y}" stroke="#EAEAEA"/>`;
     s += `<text x="${mL-8}" y="${y+4}" text-anchor="end" font-size="11" fill="#6E6E6E">${fmtBR(v,2)}</text>`;
   }
-  const caminho = pontos.map((p,i)=>`${i?"L":"M"}${X(i)},${Y(p.custo)}`).join(" ");
+  const caminho = pontos.map((p,i)=>`${i?"L":"M"}${X(i)},${Y(p[campo])}`).join(" ");
   s += `<path d="${caminho}" fill="none" stroke="#FF6401" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
   pontos.forEach((p,i)=>{
-    const x = X(i), y = Y(p.custo);
+    const x = X(i), y = Y(p[campo]);
     s += `<circle cx="${x}" cy="${y}" r="5" fill="#FF6401" stroke="#fff" stroke-width="2"/>`;
-    s += `<text x="${x}" y="${y-12}" text-anchor="middle" font-size="11" font-weight="600" fill="#1E1E1E">${fmtBR(p.custo,3)}</text>`;
+    s += `<text x="${x}" y="${y-12}" text-anchor="middle" font-size="11" font-weight="600" fill="#1E1E1E">${fmtBR(p[campo],3)}</text>`;
     const [a,m,d] = p.data.split("-");
     s += `<text x="${x}" y="${H-mB+18}" text-anchor="middle" font-size="11" fill="#6E6E6E">${d}/${m}</text>`;
     if (i > 0){
-      const dif = p.custo - pontos[i-1].custo;
+      const dif = p[campo] - pontos[i-1][campo];
       const cent = Math.round(Math.abs(dif)*100);
       if (cent > 0){
-        const cor = dif > 0 ? "#C62828" : "#1B7A3D";
-        const txt = (dif > 0 ? "+" : "−") + cent + "¢";
+        const subiu = dif > 0;
+        const bom = inverterCor ? subiu : !subiu;   // margem: subir é bom; custo: subir é ruim
+        const cor = bom ? "#1B7A3D" : "#C62828";
+        const txt = (subiu ? "+" : "−") + cent + "¢";
         s += `<text x="${(x + X(i-1))/2}" y="${H-mB+36}" text-anchor="middle" font-size="10" font-weight="600" fill="${cor}">${txt}</text>`;
       }
     }
@@ -1551,12 +1601,29 @@ function renderDashboard(){
   const alvo = document.getElementById("conteudoDash");
   let saida = "";
   opcoesDe("combustivel").forEach(comb => {
-    const pontos = dadosDashboard(comb);
-    if (!pontos.length) return;
+    const pontos  = dadosDashboard(comb);
+    const pontosM = dadosDashboardMargem(comb);
+    if (!pontos.length && !pontosM.length) return;
+    const cardCusto = pontos.length
+      ? `<div class="resumo-dash">${resumoHTML(pontos)}</div>
+         <div class="grafico-dash">${graficoSVG(pontos, "custo", false)}</div>`
+      : '<div class="dash-vazio">Sem dados no período.</div>';
+    const cardMargem = pontosM.length
+      ? `<div class="resumo-dash">${resumoMargemHTML(pontosM)}</div>
+         <div class="grafico-dash">${graficoSVG(pontosM, "margem", true)}</div>`
+      : '<div class="dash-vazio">Sem dados no período.</div>';
     saida += `<div class="bloco-comb">
       <h3>${comb}</h3>
-      <div class="resumo-dash">${resumoHTML(pontos)}</div>
-      <div class="grafico-dash">${graficoSVG(pontos)}</div>
+      <div class="dash-duplo">
+        <div class="dash-card">
+          <h4>Evolução do preço de compra</h4>
+          ${cardCusto}
+        </div>
+        <div class="dash-card">
+          <h4>Evolução da margem</h4>
+          ${cardMargem}
+        </div>
+      </div>
     </div>`;
   });
   alvo.innerHTML = saida || '<div class="dash-vazio">Nenhum lançamento no período selecionado.</div>';
