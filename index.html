@@ -386,14 +386,8 @@
   <div class="config" id="painelDash">
     <div class="grupo">
       <h2>Evolução do preço de compra</h2>
-      <div class="dash-controles">
-        <label for="dashIni">Data inicial:</label>
-        <input type="date" id="dashIni" onchange="renderDashboard()">
-        <label for="dashFim">Data final:</label>
-        <input type="date" id="dashFim" onchange="renderDashboard()">
-      </div>
       <div id="conteudoDash"></div>
-      <p class="nota-dash">Um gráfico para cada combustível com lançamentos no período (datas ajustáveis acima; o período começa pré-preenchido do dia 1º do mês atual até hoje). Cada ponto é a média do preço de custo lançado na data, respeitando o filtro de Posto da tela. Os valores em vermelho/verde mostram quantos centavos o preço subiu ou caiu em relação ao lançamento anterior.</p>
+      <p class="nota-dash">Um gráfico para cada combustível com lançamentos no período dos filtros Data Inicial e Data Final acima (que já vêm preenchidos do dia 1º do mês atual até hoje, mas podem ser alterados). Cada ponto é a média do preço de custo lançado na data, respeitando também o filtro de Posto. Os valores em vermelho/verde mostram quantos centavos o preço subiu ou caiu em relação ao lançamento anterior.</p>
     </div>
   </div>
 
@@ -878,19 +872,20 @@ function alternarDash(){
 
 const fmtBR = (v, casas=2) => v.toLocaleString("pt-BR",{minimumFractionDigits:casas,maximumFractionDigits:casas});
 
-function inicializarDatasDash(){
-  const ini = document.getElementById("dashIni");
-  const fim = document.getElementById("dashFim");
-  if (ini.value || fim.value) return;   // usuário já mexeu — não sobrescrever
+function inicializarDatasFiltro(){
+  // Filtros da tela já abrem no mês vigente (1º dia até hoje) — editáveis à vontade
+  const ini = document.getElementById("fDataIni");
+  const fim = document.getElementById("fDataFim");
+  if (ini.value || fim.value) return;
   const hoje = new Date();
   const ano = hoje.getFullYear(), mes = String(hoje.getMonth()+1).padStart(2,"0");
-  ini.value = `${ano}-${mes}-01`;                                  // 1º dia do mês vigente
-  fim.value = `${ano}-${mes}-${String(hoje.getDate()).padStart(2,"0")}`; // hoje
+  ini.value = `${ano}-${mes}-01`;
+  fim.value = `${ano}-${mes}-${String(hoje.getDate()).padStart(2,"0")}`;
 }
 
 function dadosDashboard(comb){
-  const dIni = document.getElementById("dashIni").value;
-  const dFim = document.getElementById("dashFim").value;
+  const dIni = document.getElementById("fDataIni").value;
+  const dFim = document.getElementById("fDataFim").value;
   const posto = document.getElementById("fPosto").value;
   const porData = {};
   registros.forEach(r => {
@@ -960,7 +955,6 @@ function graficoSVG(pontos){
 }
 
 function renderDashboard(){
-  inicializarDatasDash();
   const alvo = document.getElementById("conteudoDash");
   let saida = "";
   opcoesDe("combustivel").forEach(comb => {
@@ -1049,6 +1043,7 @@ function exportarPDF(){
   doc.save("postos_full_margens_" + agora.toISOString().slice(0,10) + ".pdf");
 }
 
+inicializarDatasFiltro();
 render();
 
 /* ================== PWA: service worker ================== */
