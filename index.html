@@ -546,10 +546,11 @@
       <div class="dash-toggles">
         <span class="dash-toggles-rot">Mostrar:</span>
         <label class="dash-check"><input type="checkbox" id="chkVerCusto" checked onchange="renderDashboard()"> Evolução do preço de compra</label>
-        <label class="dash-check"><input type="checkbox" id="chkVerMargem" checked onchange="renderDashboard()"> Evolução da margem</label>
+        <label class="dash-check"><input type="checkbox" id="chkVerMargem" checked onchange="renderDashboard()"> Evolução da margem - valor</label>
+        <label class="dash-check"><input type="checkbox" id="chkVerMargemPct" checked onchange="renderDashboard()"> Evolução da margem - percentual</label>
       </div>
       <div id="conteudoDash"></div>
-      <p class="nota-dash">Para cada combustível, dois gráficos lado a lado: a <b>Evolução do preço de compra</b> e a <b>Evolução da margem</b> (calculada com preço de compra, custo do frete e preço de venda dos lançamentos). Cada ponto é a média na data, respeitando os filtros de Data e Posto. No preço de compra, vermelho = subiu (ruim); na margem, verde = subiu (bom).</p>
+      <p class="nota-dash">Para cada combustível, gráficos lado a lado: <b>Evolução do preço de compra</b>, <b>Evolução da margem - valor</b> (em R$) e <b>Evolução da margem - percentual</b> (em %). A margem usa preço de compra, custo do frete e preço de venda dos lançamentos. Cada ponto é a média na data, respeitando os filtros de Data e Posto. No preço de compra, vermelho = subiu (ruim); nas margens, verde = subiu (bom). Use as caixas "Mostrar" para exibir só os gráficos que quiser.</p>
     </div>
   </div>
 
@@ -1572,42 +1573,70 @@ function resumoMargemHTML(pontos){
   return resumoLinha(pontos, "margem", "Última margem", true, suf);
 }
 
-function graficoSVG(pontos, campo, inverterCor){
+function resumoMargemPctHTML(pontos){
+  const primeiro = pontos[0].margemP, ultimo = pontos[pontos.length-1].margemP;
+  const variacao = ultimo - primeiro;
+  // margem: subir é bom (verde); cair é ruim (vermelho)
+  let classe = "";
+  if (variacao > 0.005)      classe = "desce";
+  else if (variacao < -0.005) classe = "sobe";
+  const seta = variacao > 0.005 ? "▲ subiu" : variacao < -0.005 ? "▼ caiu" : "estável";
+  const pp = Math.round(Math.abs(variacao) * 100) / 100;
+  const valorVar = pp >= 0.005 ? " " + fmtBR(pp,2) + " p.p." : "";
+  const vals = pontos.map(p=>p.margemP);
+  return `
+    <div class="cartao-kpi"><span>Última margem %</span><b>${fmtBR(ultimo,2)}%</b></div>
+    <div class="cartao-kpi"><span>Variação no período</span>
+      <b class="${classe}">${seta}${valorVar}</b></div>
+    <div class="cartao-kpi"><span>Menor / Maior</span>
+      <b>${fmtBR(Math.min(...vals),2)}% / ${fmtBR(Math.max(...vals),2)}%</b></div>`;
+}
+
+function graficoSVG(pontos, campo, inverterCor, tipo){
   campo = campo || "custo";
-  const H = 300, mT = 24, mB = 46, mL = 62, mR = 24;
+  const ehPct = tipo === "percentual";
+  const H = 300, mT = 24, mB = 46, mL = ehPct ? 66 : 62, mR = 24;
   const passoX = Math.max(70, 640 / Math.max(pontos.length-1, 1));
   const W = Math.max(680, mL + mR + passoX * (pontos.length-1));
   const vals = pontos.map(p=>p[campo]);
   let vMin = Math.min(...vals), vMax = Math.max(...vals);
-  if (vMax - vMin < 0.05){ const meio=(vMax+vMin)/2; vMin=meio-0.05; vMax=meio+0.05; }
+  const spanMin = ehPct ? 1 : 0.05;
+  if (vMax - vMin < spanMin){ const meio=(vMax+vMin)/2; vMin=meio-spanMin/2; vMax=meio+spanMin/2; }
   const folga = (vMax - vMin) * 0.15; vMin -= folga; vMax += folga;
   const X = i => mL + i * passoX;
   const Y = v => mT + (H - mT - mB) * (1 - (v - vMin) / (vMax - vMin));
+  // Formatação conforme o tipo
+  const rotuloEixo  = v => ehPct ? fmtBR(v,1) + "%" : fmtBR(v,2);
+  const rotuloPonto = v => ehPct ? fmtBR(v,2) + "%" : fmtBR(v,3);
 
   let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" font-family="Poppins,Arial,sans-serif">`;
   for (let g = 0; g <= 4; g++){
     const v = vMin + (vMax - vMin) * g / 4, y = Y(v);
     s += `<line x1="${mL}" y1="${y}" x2="${W-mR}" y2="${y}" stroke="#EAEAEA"/>`;
-    s += `<text x="${mL-8}" y="${y+4}" text-anchor="end" font-size="11" fill="#6E6E6E">${fmtBR(v,2)}</text>`;
+    s += `<text x="${mL-8}" y="${y+4}" text-anchor="end" font-size="11" fill="#6E6E6E">${rotuloEixo(v)}</text>`;
   }
   const caminho = pontos.map((p,i)=>`${i?"L":"M"}${X(i)},${Y(p[campo])}`).join(" ");
   s += `<path d="${caminho}" fill="none" stroke="#FF6401" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
   pontos.forEach((p,i)=>{
     const x = X(i), y = Y(p[campo]);
     s += `<circle cx="${x}" cy="${y}" r="5" fill="#FF6401" stroke="#fff" stroke-width="2"/>`;
-    s += `<text x="${x}" y="${y-12}" text-anchor="middle" font-size="11" font-weight="600" fill="#1E1E1E">${fmtBR(p[campo],3)}</text>`;
+    s += `<text x="${x}" y="${y-12}" text-anchor="middle" font-size="11" font-weight="600" fill="#1E1E1E">${rotuloPonto(p[campo])}</text>`;
     const [a,m,d] = p.data.split("-");
     s += `<text x="${x}" y="${H-mB+18}" text-anchor="middle" font-size="11" fill="#6E6E6E">${d}/${m}</text>`;
     if (i > 0){
       const dif = p[campo] - pontos[i-1][campo];
-      const cent = Math.round(Math.abs(dif)*100);
-      if (cent > 0){
-        const subiu = dif > 0;
-        const bom = inverterCor ? subiu : !subiu;   // margem: subir é bom; custo: subir é ruim
-        const cor = bom ? "#1B7A3D" : "#C62828";
-        const txt = (subiu ? "+" : "−") + cent + "¢";
-        s += `<text x="${(x + X(i-1))/2}" y="${H-mB+36}" text-anchor="middle" font-size="10" font-weight="600" fill="${cor}">${txt}</text>`;
+      const subiu = dif > 0;
+      const bom = inverterCor ? subiu : !subiu;   // margem: subir é bom; custo: subir é ruim
+      const cor = bom ? "#1B7A3D" : "#C62828";
+      let txt = "";
+      if (ehPct){
+        const pp = Math.round(Math.abs(dif) * 100) / 100;   // pontos percentuais
+        if (pp > 0) txt = (subiu ? "+" : "−") + fmtBR(pp,2) + " p.p.";
+      } else {
+        const cent = Math.round(Math.abs(dif) * 100);
+        if (cent > 0) txt = (subiu ? "+" : "−") + cent + "¢";
       }
+      if (txt) s += `<text x="${(x + X(i-1))/2}" y="${H-mB+36}" text-anchor="middle" font-size="10" font-weight="600" fill="${cor}">${txt}</text>`;
     }
   });
   return s + "</svg>";
@@ -1617,18 +1646,20 @@ function renderDashboard(){
   const alvo = document.getElementById("conteudoDash");
   const chkC = document.getElementById("chkVerCusto");
   const chkM = document.getElementById("chkVerMargem");
-  const verCusto  = !chkC || chkC.checked;
-  const verMargem = !chkM || chkM.checked;
+  const chkMP = document.getElementById("chkVerMargemPct");
+  const verCusto     = !chkC  || chkC.checked;
+  const verMargem    = !chkM  || chkM.checked;
+  const verMargemPct = !chkMP || chkMP.checked;
 
-  if (!verCusto && !verMargem){
+  if (!verCusto && !verMargem && !verMargemPct){
     alvo.innerHTML = '<div class="dash-vazio">Marque ao menos um gráfico em “Mostrar” acima.</div>';
     return;
   }
 
   let saida = "";
   opcoesDe("combustivel").forEach(comb => {
-    const pontos  = verCusto  ? dadosDashboard(comb)       : [];
-    const pontosM = verMargem ? dadosDashboardMargem(comb) : [];
+    const pontos   = verCusto ? dadosDashboard(comb) : [];
+    const pontosM  = (verMargem || verMargemPct) ? dadosDashboardMargem(comb) : [];
     if (!pontos.length && !pontosM.length) return;
 
     let cards = "";
@@ -1648,8 +1679,18 @@ function renderDashboard(){
            <div class="grafico-dash">${graficoSVG(pontosM, "margem", true)}</div>`
         : '<div class="dash-vazio">Sem dados no período.</div>';
       cards += `<div class="dash-card">
-          <h4>Evolução da margem</h4>
+          <h4>Evolução da margem - valor</h4>
           ${cardMargem}
+        </div>`;
+    }
+    if (verMargemPct){
+      const cardMargemPct = pontosM.length
+        ? `<div class="resumo-dash">${resumoMargemPctHTML(pontosM)}</div>
+           <div class="grafico-dash">${graficoSVG(pontosM, "margemP", true, "percentual")}</div>`
+        : '<div class="dash-vazio">Sem dados no período.</div>';
+      cards += `<div class="dash-card">
+          <h4>Evolução da margem - percentual</h4>
+          ${cardMargemPct}
         </div>`;
     }
 
