@@ -14,6 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -1632,10 +1633,10 @@ function graficoSVG(pontos, campo, inverterCor, tipo){
       let txt = "";
       if (ehPct){
         const pp = Math.round(Math.abs(dif) * 100) / 100;   // pontos percentuais
-        if (pp > 0) txt = (subiu ? "+" : "−") + fmtBR(pp,2) + " p.p.";
+        if (pp > 0) txt = (subiu ? "+" : "-") + fmtBR(pp,2) + " p.p.";
       } else {
         const cent = Math.round(Math.abs(dif) * 100);
-        if (cent > 0) txt = (subiu ? "+" : "−") + cent + "¢";
+        if (cent > 0) txt = (subiu ? "+" : "-") + cent + "¢";
       }
       if (txt) s += `<text x="${(x + X(i-1))/2}" y="${H-mB+36}" text-anchor="middle" font-size="10" font-weight="600" fill="${cor}">${txt}</text>`;
     }
@@ -1870,15 +1871,89 @@ async function imprimirPainel(info, nomeArquivo){
   else ultima.onload = () => setTimeout(disparar, 200);
 }
 
+// Gera o PDF do dashboard como VETOR (texto selecionável e gráficos que não perdem
+// qualidade no zoom), empilhando os gráficos — igual à tela, mas sem ser um "print".
+async function exportarPDFDashboardVetorial(info, nomeArquivo){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  const margL = 12, margBot = 12, pageW = 210, pageH = 297;
+  const contentW = pageW - margL - 12;
+  const limiteY = pageH - margBot;
+  let y;
+  const novaPagina = (primeira) => { if (!primeira) doc.addPage(); cabecalhoPDF(doc, info.nome); y = 30; };
+  novaPagina(true);
+
+  const alturaGrafico = (svg) => {
+    const vb = (svg.getAttribute("viewBox") || "0 0 680 300").split(" ").map(Number);
+    return contentW * vb[3] / vb[2];
+  };
+
+  const blocos = [...info.el.querySelectorAll(".bloco-comb")];
+  if (!blocos.length){ await exportarPDFPainel(info, nomeArquivo); return; }  // sem dados: cai no modo imagem
+
+  for (const bloco of blocos){
+    const comb = (bloco.querySelector("h3") || {}).textContent || "";
+    const cards = [...bloco.querySelectorAll(".dash-card")];
+    // manter o nome do combustível junto do primeiro gráfico
+    const primeiroSvg = cards[0] && cards[0].querySelector("svg");
+    const alturaPrimeiro = primeiroSvg ? (6 + 11 + alturaGrafico(primeiroSvg) + 6) : 0;
+    if (y + 11 + alturaPrimeiro > limiteY) novaPagina(false);
+    doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(255,100,1);
+    doc.text(comb, margL, y + 5); y += 11;
+
+    for (const card of cards){
+      const svg = card.querySelector("svg");
+      if (!svg) continue;
+      const titulo = (card.querySelector("h4") || {}).textContent || "";
+      const kpis = [...card.querySelectorAll(".cartao-kpi")].map(k => ({
+        l: (k.querySelector("span") || {}).textContent || "",
+        v: (((k.querySelector("b") || {}).textContent) || "").replace(/[\u25B2\u25BC]\s*/g, ""),
+        c: (k.querySelector("b") || {}).className || ""
+      }));
+      const chartH = alturaGrafico(svg);
+      const cardH = 6 + 11 + chartH + 6;
+      if (y + cardH > limiteY) novaPagina(false);
+      // título do gráfico
+      doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor(30,30,30);
+      doc.text(titulo, margL, y + 4); y += 6;
+      // KPIs em 3 colunas (texto selecionável)
+      const colW = contentW / 3;
+      kpis.forEach((k, i) => {
+        const cx = margL + i * colW;
+        doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
+        doc.text(k.l, cx, y + 3);
+        doc.setFont("helvetica","bold"); doc.setFontSize(9);
+        if (k.c.indexOf("sobe") >= 0) doc.setTextColor(198,40,40);
+        else if (k.c.indexOf("desce") >= 0) doc.setTextColor(27,122,61);
+        else doc.setTextColor(30,30,30);
+        doc.text(k.v, cx, y + 8);
+      });
+      y += 11;
+      // gráfico como vetor
+      await doc.svg(svg, { x: margL, y: y, width: contentW, height: chartH });
+      y += chartH + 6;
+    }
+  }
+
+  const total = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= total; p++){
+    doc.setPage(p); doc.setFontSize(8); doc.setTextColor(150);
+    doc.text("Página " + p + " de " + total, 198, pageH - 4, { align:"right" });
+  }
+  doc.save(nomeArquivo + ".pdf");
+}
+
 async function exportarPDF(){
   const info = painelVisivelInfo();
   const nome = pedirNomeArquivo(nomeArquivoPadrao(info));
   if (nome === null) return;
   try {
     if (info.id === "painelRegistros"){
-      exportarPDFTabela(nome);            // tabela profissional (autoTable)
+      exportarPDFTabela(nome);                              // tabela (autoTable, texto real)
+    } else if (info.id === "painelDash" && window.svg2pdf){
+      await exportarPDFDashboardVetorial(info, nome);       // dashboard vetorial (texto real + gráficos vetoriais)
     } else {
-      await exportarPDFPainel(info, nome); // captura fiel do painel
+      await exportarPDFPainel(info, nome);                  // demais painéis: captura fiel (imagem)
     }
   } catch(e){ alert("Não foi possível gerar o PDF. Tente novamente."); }
 }
