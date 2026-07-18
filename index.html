@@ -312,6 +312,17 @@
   .resumo-dash .cartao-kpi span{font-size:.72rem;color:var(--cinza);text-transform:uppercase;letter-spacing:.4px}
   .resumo-dash .sobe{color:var(--vermelho)}
   .resumo-dash .desce{color:#1B7A3D}
+  .dash-toggles{
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    margin:0 0 16px;padding:12px 14px;background:#F7F7F7;
+    border:1px solid var(--borda);border-radius:10px;
+  }
+  .dash-toggles-rot{
+    font-family:"Oswald","Poppins",sans-serif;font-size:.78rem;
+    text-transform:uppercase;letter-spacing:.5px;color:var(--grafite);font-weight:500;
+  }
+  .dash-check{display:flex;align-items:center;gap:7px;font-size:.9rem;color:var(--grafite);cursor:pointer}
+  .dash-check input{width:17px;height:17px;accent-color:var(--verde);cursor:pointer}
   .dash-duplo{display:flex;gap:18px;flex-wrap:wrap}
   .dash-card{flex:1 1 380px;min-width:0}
   .dash-card > h4{
@@ -532,6 +543,11 @@
   <div class="config" id="painelDash">
     <div class="grupo">
       <h2>Evolução de preços e margens</h2>
+      <div class="dash-toggles">
+        <span class="dash-toggles-rot">Mostrar:</span>
+        <label class="dash-check"><input type="checkbox" id="chkVerCusto" checked onchange="renderDashboard()"> Evolução do preço de compra</label>
+        <label class="dash-check"><input type="checkbox" id="chkVerMargem" checked onchange="renderDashboard()"> Evolução da margem</label>
+      </div>
       <div id="conteudoDash"></div>
       <p class="nota-dash">Para cada combustível, dois gráficos lado a lado: a <b>Evolução do preço de compra</b> e a <b>Evolução da margem</b> (calculada com preço de compra, custo do frete e preço de venda dos lançamentos). Cada ponto é a média na data, respeitando os filtros de Data e Posto. No preço de compra, vermelho = subiu (ruim); na margem, verde = subiu (bom).</p>
     </div>
@@ -1599,31 +1615,47 @@ function graficoSVG(pontos, campo, inverterCor){
 
 function renderDashboard(){
   const alvo = document.getElementById("conteudoDash");
+  const chkC = document.getElementById("chkVerCusto");
+  const chkM = document.getElementById("chkVerMargem");
+  const verCusto  = !chkC || chkC.checked;
+  const verMargem = !chkM || chkM.checked;
+
+  if (!verCusto && !verMargem){
+    alvo.innerHTML = '<div class="dash-vazio">Marque ao menos um gráfico em “Mostrar” acima.</div>';
+    return;
+  }
+
   let saida = "";
   opcoesDe("combustivel").forEach(comb => {
-    const pontos  = dadosDashboard(comb);
-    const pontosM = dadosDashboardMargem(comb);
+    const pontos  = verCusto  ? dadosDashboard(comb)       : [];
+    const pontosM = verMargem ? dadosDashboardMargem(comb) : [];
     if (!pontos.length && !pontosM.length) return;
-    const cardCusto = pontos.length
-      ? `<div class="resumo-dash">${resumoHTML(pontos)}</div>
-         <div class="grafico-dash">${graficoSVG(pontos, "custo", false)}</div>`
-      : '<div class="dash-vazio">Sem dados no período.</div>';
-    const cardMargem = pontosM.length
-      ? `<div class="resumo-dash">${resumoMargemHTML(pontosM)}</div>
-         <div class="grafico-dash">${graficoSVG(pontosM, "margem", true)}</div>`
-      : '<div class="dash-vazio">Sem dados no período.</div>';
-    saida += `<div class="bloco-comb">
-      <h3>${comb}</h3>
-      <div class="dash-duplo">
-        <div class="dash-card">
+
+    let cards = "";
+    if (verCusto){
+      const cardCusto = pontos.length
+        ? `<div class="resumo-dash">${resumoHTML(pontos)}</div>
+           <div class="grafico-dash">${graficoSVG(pontos, "custo", false)}</div>`
+        : '<div class="dash-vazio">Sem dados no período.</div>';
+      cards += `<div class="dash-card">
           <h4>Evolução do preço de compra</h4>
           ${cardCusto}
-        </div>
-        <div class="dash-card">
+        </div>`;
+    }
+    if (verMargem){
+      const cardMargem = pontosM.length
+        ? `<div class="resumo-dash">${resumoMargemHTML(pontosM)}</div>
+           <div class="grafico-dash">${graficoSVG(pontosM, "margem", true)}</div>`
+        : '<div class="dash-vazio">Sem dados no período.</div>';
+      cards += `<div class="dash-card">
           <h4>Evolução da margem</h4>
           ${cardMargem}
-        </div>
-      </div>
+        </div>`;
+    }
+
+    saida += `<div class="bloco-comb">
+      <h3>${comb}</h3>
+      <div class="dash-duplo">${cards}</div>
     </div>`;
   });
   alvo.innerHTML = saida || '<div class="dash-vazio">Nenhum lançamento no período selecionado.</div>';
