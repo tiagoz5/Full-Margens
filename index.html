@@ -607,7 +607,7 @@
     </div>
   </div>
 
-  <div id="painelRegistros" class="aberto">
+  <div id="painelRegistros">
   <div class="tabela-wrap">
     <table>
       <thead>
@@ -736,6 +736,7 @@ auth.onAuthStateChanged(usuario => {
     document.getElementById("btnUsuarios").style.display = ehAdmin ? "" : "none";
     iniciarSync();
     render();
+    alternarDash();   // abre o Dashboard como painel inicial
   } else {
     if (escutaLancamentos){ escutaLancamentos(); escutaLancamentos = null; }
     if (escutaConfig){ escutaConfig(); escutaConfig = null; }
