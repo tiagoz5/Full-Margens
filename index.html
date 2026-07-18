@@ -1748,10 +1748,30 @@ function cabecalhoPDF(doc, subtitulo){
   doc.text("Gerado em " + ag.toLocaleDateString("pt-BR") + " " + ag.toLocaleTimeString("pt-BR").slice(0,5), 198, 16.5, { align:"right" });
 }
 
+// Captura o painel em imagem. No caso do dashboard, expande os gráficos SÓ na cópia
+// interna (empilha os cartões e remove a rolagem), para os gráficos saírem inteiros —
+// sem alterar nada na tela do app.
+async function capturarPainelCanvas(el){
+  return await html2canvas(el, {
+    scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false,
+    onclone: (doc) => {
+      doc.querySelectorAll(".dash-duplo").forEach(d => { d.style.display = "block"; });
+      doc.querySelectorAll(".dash-card").forEach(c => {
+        c.style.width = "100%"; c.style.minWidth = "0"; c.style.marginBottom = "20px";
+      });
+      doc.querySelectorAll(".grafico-dash").forEach(g => {
+        g.style.overflow = "visible"; g.style.width = "auto"; g.style.maxWidth = "none";
+      });
+      const p = doc.getElementById(el.id);
+      if (p) { p.style.width = "1000px"; p.style.maxWidth = "none"; }
+    }
+  });
+}
+
 // Exporta o painel visível como PDF (imagem), fatiando por página (leve, em JPEG)
 async function exportarPDFPainel(info, nomeArquivo){
   const { jsPDF } = window.jspdf;
-  const fonte = await html2canvas(info.el, { scale: 2, backgroundColor:"#ffffff", useCORS:true, logging:false });
+  const fonte = await capturarPainelCanvas(info.el);
   const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
   const pw = 210, ph = 297, margem = 8, topo = 28, rodape = 10;
   const imgW = pw - margem*2;
@@ -1780,7 +1800,7 @@ async function exportarPDFPainel(info, nomeArquivo){
 
 // Imprime somente o painel visível (captura em imagem, via iframe oculto — funciona no app instalado)
 async function imprimirPainel(info, nomeArquivo){
-  const canvas = await html2canvas(info.el, { scale: 2, backgroundColor:"#ffffff", useCORS:true, logging:false });
+  const canvas = await capturarPainelCanvas(info.el);
   const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
   const tituloOrig = document.title;
   const iframe = document.createElement("iframe");
