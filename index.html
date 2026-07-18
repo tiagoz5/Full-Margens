@@ -1768,58 +1768,95 @@ async function capturarPainelCanvas(el){
   });
 }
 
+// Mede a base de cada cartão numa cópia offscreen (mesmas expansões da captura),
+// para sabermos onde estão as divisas entre gráficos.
+function medirDivisasCartoes(painelEl){
+  const clone = painelEl.cloneNode(true);
+  clone.style.cssText = "position:absolute;left:-99999px;top:0;width:1000px;max-width:none;display:block;";
+  clone.querySelectorAll(".dash-duplo").forEach(d => { d.style.display = "block"; });
+  clone.querySelectorAll(".dash-card").forEach(c => { c.style.width = "100%"; c.style.minWidth = "0"; c.style.marginBottom = "20px"; });
+  clone.querySelectorAll(".grafico-dash").forEach(g => { g.style.overflow = "visible"; g.style.width = "auto"; g.style.maxWidth = "none"; });
+  document.body.appendChild(clone);
+  const t0 = clone.getBoundingClientRect().top;
+  const bottoms = [...clone.querySelectorAll(".dash-card")].map(c => c.getBoundingClientRect().bottom - t0);
+  const alturaCSS = clone.scrollHeight;
+  document.body.removeChild(clone);
+  return { bottoms, alturaCSS };
+}
+
+// Captura o painel e o divide em páginas quebrando SÓ nas divisas dos cartões,
+// para nenhum gráfico sair partido entre uma página e outra.
+async function montarPaginasPainel(painelEl){
+  const { bottoms, alturaCSS } = medirDivisasCartoes(painelEl);
+  const fonte = await capturarPainelCanvas(painelEl);
+  const imgW = 194, areaUtil = 259;                 // mm (A4 retrato com margens)
+  const pxPorMm = fonte.width / imgW;
+  const pageHpxMax = areaUtil * pxPorMm;
+  const ratio = alturaCSS > 0 ? fonte.height / alturaCSS : 2;
+  // Pontos de quebra possíveis (px do canvas): base de cada cartão + fim total
+  const cortes = [...new Set(bottoms.map(b => Math.round(b * ratio)).concat([fonte.height]))]
+                   .filter(c => c > 0).sort((a,b) => a - b);
+  const paginas = [];
+  let inicio = 0, guarda = 0;
+  while (inicio < fonte.height - 1 && guarda++ < 300){
+    let fim = inicio + pageHpxMax;
+    if (fim >= fonte.height) fim = fonte.height;
+    else {
+      const cand = cortes.filter(c => c > inicio && c <= fim);
+      if (cand.length) fim = cand[cand.length - 1];   // maior divisa que ainda cabe
+    }
+    const sh = Math.round(fim - inicio);
+    const fatia = document.createElement("canvas");
+    fatia.width = fonte.width; fatia.height = sh;
+    const fx = fatia.getContext("2d");
+    fx.fillStyle = "#fff"; fx.fillRect(0, 0, fatia.width, sh);
+    fx.drawImage(fonte, 0, inicio, fonte.width, sh, 0, 0, fonte.width, sh);
+    paginas.push({ dataUrl: fatia.toDataURL("image/jpeg", 0.85), hMm: sh / pxPorMm });
+    inicio = fim;
+  }
+  return paginas;
+}
+
 // Exporta o painel visível como PDF (imagem), fatiando por página (leve, em JPEG)
 async function exportarPDFPainel(info, nomeArquivo){
   const { jsPDF } = window.jspdf;
-  const fonte = await capturarPainelCanvas(info.el);
+  const paginas = await montarPaginasPainel(info.el);
   const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
-  const pw = 210, ph = 297, margem = 8, topo = 28, rodape = 10;
-  const imgW = pw - margem*2;
-  const areaUtil = ph - topo - rodape;
-  const pxPorMm = fonte.width / imgW;
-  const pageHpx = Math.floor(areaUtil * pxPorMm);
-  const totalPaginas = Math.max(1, Math.ceil(fonte.height / pageHpx));
-
-  for (let p = 0; p < totalPaginas; p++){
-    if (p > 0) doc.addPage();
-    const sy = p * pageHpx;
-    const sh = Math.min(pageHpx, fonte.height - sy);
-    const fatia = document.createElement("canvas");
-    fatia.width = fonte.width; fatia.height = sh;
-    const fctx = fatia.getContext("2d");
-    fctx.fillStyle = "#fff"; fctx.fillRect(0, 0, fatia.width, sh);
-    fctx.drawImage(fonte, 0, sy, fonte.width, sh, 0, 0, fonte.width, sh);
-    const sliceData = fatia.toDataURL("image/jpeg", 0.85);
-    doc.addImage(sliceData, "JPEG", margem, topo, imgW, sh / pxPorMm);
+  const pw = 210, ph = 297, margem = 8, topo = 28;
+  paginas.forEach((pg, i) => {
+    if (i > 0) doc.addPage();
+    doc.addImage(pg.dataUrl, "JPEG", margem, topo, pw - margem*2, pg.hMm);
     cabecalhoPDF(doc, info.nome);
     doc.setFontSize(8); doc.setTextColor(150);
-    doc.text("Página " + (p+1) + " de " + totalPaginas, 198, ph-4, { align:"right" });
-  }
+    doc.text("Página " + (i+1) + " de " + paginas.length, 198, ph-4, { align:"right" });
+  });
   doc.save(nomeArquivo + ".pdf");
 }
 
 // Imprime somente o painel visível (captura em imagem, via iframe oculto — funciona no app instalado)
 async function imprimirPainel(info, nomeArquivo){
-  const canvas = await capturarPainelCanvas(info.el);
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+  const paginas = await montarPaginasPainel(info.el);
   const tituloOrig = document.title;
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
   document.body.appendChild(iframe);
   const idoc = iframe.contentWindow.document;
+  const blocos = paginas.map(pg => '<div class="pg"><img src="' + pg.dataUrl + '"></div>').join("");
   idoc.open();
   idoc.write(
     '<html><head><title>' + nomeArquivo + '</title>' +
     '<style>@page{margin:10mm} body{margin:0;font-family:Arial,sans-serif}' +
-    '.cab{background:#1E1E1E;color:#fff;padding:10px 14px;border-bottom:3px solid #FF6401}' +
+    '.cab{background:#1E1E1E;color:#fff;padding:10px 14px;border-bottom:3px solid #FF6401;margin-bottom:6px}' +
     '.cab b{font-size:15px} .cab span{font-size:11px;color:#ddd;margin-left:8px}' +
+    '.pg{page-break-after:always} .pg:last-child{page-break-after:auto}' +
     'img{width:100%;display:block}</style></head><body>' +
     '<div class="cab"><b>POSTOS FULL</b><span>' + info.nome + ' — ' +
     new Date().toLocaleDateString("pt-BR") + '</span></div>' +
-    '<img src="' + dataUrl + '"></body></html>');
+    blocos + '</body></html>');
   idoc.close();
-  const img = idoc.querySelector("img");
+  const imgs = idoc.querySelectorAll("img");
+  const ultima = imgs[imgs.length - 1];
   const disparar = () => {
     document.title = nomeArquivo;                      // nome sugerido ao "Salvar como PDF"
     try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e){}
@@ -1828,7 +1865,9 @@ async function imprimirPainel(info, nomeArquivo){
       if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
     }, 1500);
   };
-  if (img.complete) setTimeout(disparar, 150); else img.onload = () => setTimeout(disparar, 150);
+  if (!ultima) setTimeout(disparar, 200);
+  else if (ultima.complete) setTimeout(disparar, 200);
+  else ultima.onload = () => setTimeout(disparar, 200);
 }
 
 async function exportarPDF(){
