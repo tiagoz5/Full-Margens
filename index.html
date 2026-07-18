@@ -401,6 +401,14 @@
     width:100%;margin-top:18px;padding:12px;background:var(--verde);
     color:#fff;font-size:.95rem;border-radius:8px;
   }
+  .cartao-login .lembrar{
+    display:flex;align-items:center;gap:8px;cursor:pointer;
+    font-size:.9rem;color:var(--grafite);margin:2px 0 10px;
+  }
+  .cartao-login .lembrar input{width:17px;height:17px;accent-color:var(--verde);cursor:pointer}
+  .cartao-login .dica-lembrar{
+    font-size:.75rem;color:var(--cinza);text-align:center;margin-top:8px;
+  }
   .cartao-login .esqueci{
     display:block;width:100%;text-align:center;margin-top:12px;
     background:none;color:var(--verde);font-size:.82rem;
@@ -456,8 +464,13 @@
         <input type="password" id="loginSenha" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')entrar()">
         <button type="button" class="ver-senha" id="verSenha" onclick="alternarSenha()" aria-label="Mostrar senha" title="Mostrar senha">👁</button>
       </div>
+      <label class="lembrar">
+        <input type="checkbox" id="lembrarMe" checked>
+        <span>Lembrar-me neste aparelho</span>
+      </label>
       <button class="btn-entrar" onclick="entrar()">Entrar</button>
       <button class="esqueci" onclick="mostrarReset()">Esqueci minha senha</button>
+      <p class="dica-lembrar">Desmarque se este for um aparelho compartilhado.</p>
     </div>
     <div id="formReset" style="display:none">
       <label for="resetEmail">E-mail cadastrado</label>
@@ -709,10 +722,26 @@ function entrar(){
   const email = document.getElementById("loginEmail").value.trim();
   const senha = document.getElementById("loginSenha").value;
   if(!email || !senha){ avisoLogin("Preencha e-mail e senha.", "erro"); return; }
+  const lembrar = document.getElementById("lembrarMe").checked;
+  try { localStorage.setItem("margens_lembrar_me", lembrar ? "1" : "0"); } catch {}
   avisoLogin("Entrando...", "ok");
-  auth.signInWithEmailAndPassword(email, senha)
+  // Lembrar-me marcado = continua logado neste aparelho (LOCAL);
+  // desmarcado = sai ao fechar o navegador (SESSION).
+  const persistencia = lembrar
+    ? firebase.auth.Auth.Persistence.LOCAL
+    : firebase.auth.Auth.Persistence.SESSION;
+  auth.setPersistence(persistencia)
+    .then(()=> auth.signInWithEmailAndPassword(email, senha))
     .then(()=>{ document.getElementById("loginSenha").value = ""; })
     .catch(e => avisoLogin(msgErro(e), "erro"));
+}
+
+// Restaura a preferência do "Lembrar-me" salva neste aparelho
+function restaurarLembrarMe(){
+  try {
+    const v = localStorage.getItem("margens_lembrar_me");
+    if (v !== null) document.getElementById("lembrarMe").checked = (v === "1");
+  } catch {}
 }
 
 function enviarReset(){
@@ -2041,6 +2070,7 @@ function exportarPDFTabela(nomeArquivo){
 }
 
 inicializarDatasFiltro();
+restaurarLembrarMe();
 render();
 
 /* ================== PWA: service worker ================== */
