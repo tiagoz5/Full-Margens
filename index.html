@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -481,7 +482,7 @@
       <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()">🕐 Histórico</button>
       <button class="btn-claro" id="btnSimular" onclick="alternarSimular()">💰 Simular Margens</button>
       <button class="btn-claro" onclick="exportarPDF()">📄 Exportar PDF</button>
-      <button class="btn-claro" onclick="window.print()">🖨️ Imprimir</button>
+      <button class="btn-claro" onclick="imprimir()">🖨️ Imprimir</button>
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
       <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()">👥 Usuários</button>
       <button class="btn-dourado" onclick="sair()">Sair</button>
@@ -1703,7 +1704,135 @@ function renderDashboard(){
 }
 
 /* ================== Exportar PDF ================== */
-function exportarPDF(){
+/* ================== Exportar / Imprimir o painel visível ================== */
+// Identifica qual painel está aberto na tela
+function painelVisivelInfo(){
+  const mapa = [
+    ["painelRegistros", "Lançamentos", "lancamentos"],
+    ["painelDash",      "Dashboard",   "dashboard"],
+    ["painelHistorico", "Histórico",   "historico"],
+    ["painelSimular",   "Simular Margens", "simulacao"],
+    ["painelConfig",    "Configurações", "configuracoes"],
+    ["painelAdmin",     "Usuários",    "usuarios"],
+  ];
+  for (const [id, nome, slug] of mapa){
+    const el = document.getElementById(id);
+    if (el && el.classList.contains("aberto")) return { id, el, nome, slug };
+  }
+  const el = document.getElementById("painelRegistros");
+  return { id:"painelRegistros", el, nome:"Lançamentos", slug:"lancamentos" };
+}
+
+function nomeArquivoPadrao(info){
+  return "postos_full_" + info.slug + "_" + new Date().toISOString().slice(0,10);
+}
+
+// Pergunta o nome do arquivo ao usuário (limpa caracteres inválidos)
+function pedirNomeArquivo(padrao){
+  let nome = prompt("Digite o nome do arquivo:", padrao);
+  if (nome === null) return null;                       // cancelou
+  nome = nome.trim().replace(/[\\/:*?"<>|]+/g, "").replace(/\.pdf$/i, "");
+  return nome || padrao;
+}
+
+// Cabeçalho de marca reutilizável no PDF de imagem
+function cabecalhoPDF(doc, subtitulo){
+  doc.setFillColor(30,30,30); doc.rect(0,0,210,22,"F");
+  doc.setFillColor(255,100,1); doc.rect(0,22,210,1.4,"F");
+  doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(14);
+  doc.text("POSTOS FULL", 12, 10);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9);
+  doc.text(subtitulo || "Controle de Margens", 12, 16.5);
+  const ag = new Date();
+  doc.setFontSize(7.5);
+  doc.text("Gerado em " + ag.toLocaleDateString("pt-BR") + " " + ag.toLocaleTimeString("pt-BR").slice(0,5), 198, 16.5, { align:"right" });
+}
+
+// Exporta o painel visível como PDF (imagem), fatiando por página (leve, em JPEG)
+async function exportarPDFPainel(info, nomeArquivo){
+  const { jsPDF } = window.jspdf;
+  const fonte = await html2canvas(info.el, { scale: 2, backgroundColor:"#ffffff", useCORS:true, logging:false });
+  const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  const pw = 210, ph = 297, margem = 8, topo = 28, rodape = 10;
+  const imgW = pw - margem*2;
+  const areaUtil = ph - topo - rodape;
+  const pxPorMm = fonte.width / imgW;
+  const pageHpx = Math.floor(areaUtil * pxPorMm);
+  const totalPaginas = Math.max(1, Math.ceil(fonte.height / pageHpx));
+
+  for (let p = 0; p < totalPaginas; p++){
+    if (p > 0) doc.addPage();
+    const sy = p * pageHpx;
+    const sh = Math.min(pageHpx, fonte.height - sy);
+    const fatia = document.createElement("canvas");
+    fatia.width = fonte.width; fatia.height = sh;
+    const fctx = fatia.getContext("2d");
+    fctx.fillStyle = "#fff"; fctx.fillRect(0, 0, fatia.width, sh);
+    fctx.drawImage(fonte, 0, sy, fonte.width, sh, 0, 0, fonte.width, sh);
+    const sliceData = fatia.toDataURL("image/jpeg", 0.85);
+    doc.addImage(sliceData, "JPEG", margem, topo, imgW, sh / pxPorMm);
+    cabecalhoPDF(doc, info.nome);
+    doc.setFontSize(8); doc.setTextColor(150);
+    doc.text("Página " + (p+1) + " de " + totalPaginas, 198, ph-4, { align:"right" });
+  }
+  doc.save(nomeArquivo + ".pdf");
+}
+
+// Imprime somente o painel visível (captura em imagem, via iframe oculto — funciona no app instalado)
+async function imprimirPainel(info, nomeArquivo){
+  const canvas = await html2canvas(info.el, { scale: 2, backgroundColor:"#ffffff", useCORS:true, logging:false });
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+  const tituloOrig = document.title;
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+  document.body.appendChild(iframe);
+  const idoc = iframe.contentWindow.document;
+  idoc.open();
+  idoc.write(
+    '<html><head><title>' + nomeArquivo + '</title>' +
+    '<style>@page{margin:10mm} body{margin:0;font-family:Arial,sans-serif}' +
+    '.cab{background:#1E1E1E;color:#fff;padding:10px 14px;border-bottom:3px solid #FF6401}' +
+    '.cab b{font-size:15px} .cab span{font-size:11px;color:#ddd;margin-left:8px}' +
+    'img{width:100%;display:block}</style></head><body>' +
+    '<div class="cab"><b>POSTOS FULL</b><span>' + info.nome + ' — ' +
+    new Date().toLocaleDateString("pt-BR") + '</span></div>' +
+    '<img src="' + dataUrl + '"></body></html>');
+  idoc.close();
+  const img = idoc.querySelector("img");
+  const disparar = () => {
+    document.title = nomeArquivo;                      // nome sugerido ao "Salvar como PDF"
+    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e){}
+    setTimeout(() => {
+      document.title = tituloOrig;
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    }, 1500);
+  };
+  if (img.complete) setTimeout(disparar, 150); else img.onload = () => setTimeout(disparar, 150);
+}
+
+async function exportarPDF(){
+  const info = painelVisivelInfo();
+  const nome = pedirNomeArquivo(nomeArquivoPadrao(info));
+  if (nome === null) return;
+  try {
+    if (info.id === "painelRegistros"){
+      exportarPDFTabela(nome);            // tabela profissional (autoTable)
+    } else {
+      await exportarPDFPainel(info, nome); // captura fiel do painel
+    }
+  } catch(e){ alert("Não foi possível gerar o PDF. Tente novamente."); }
+}
+
+async function imprimir(){
+  const info = painelVisivelInfo();
+  const nome = pedirNomeArquivo(nomeArquivoPadrao(info));
+  if (nome === null) return;
+  try { await imprimirPainel(info, nome); }
+  catch(e){ window.print(); }             // fallback: impressão nativa
+}
+
+function exportarPDFTabela(nomeArquivo){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const num = v => v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4});
@@ -1773,7 +1902,7 @@ function exportarPDF(){
     }
   });
 
-  doc.save("postos_full_margens_" + agora.toISOString().slice(0,10) + ".pdf");
+  doc.save(nomeArquivo + ".pdf");
 }
 
 inicializarDatasFiltro();
