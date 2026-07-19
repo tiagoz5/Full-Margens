@@ -532,7 +532,10 @@
     header{ padding:12px 14px; gap:10px; }
     header h1{ font-size:.98rem; gap:10px; }
     header .logo-app{ height:30px; }
-    .header-topo{ gap:8px; }
+    /* logo à esquerda e Tema fixo no canto superior direito, na mesma linha */
+    .header-topo{ gap:8px; flex-wrap:nowrap; align-items:flex-start; }
+    .header-topo h1{ min-width:0; flex:1 1 auto; }
+    .header-topo .tema-bloco{ flex:0 0 auto; }
 
     /* botões do menu preenchem a linha (2 por linha; sozinho estica) */
     header .acoes{ gap:6px; }
