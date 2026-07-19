@@ -1,6 +1,6 @@
 {
-  "name": "Postos Full — Controle de Margens",
-  "short_name": "Posto Full",
+  "name": "Postos Full",
+  "short_name": "Postos Full",
   "description": "Controle de margens de combustíveis dos Postos Full",
   "start_url": "./index.html",
   "scope": "./",
