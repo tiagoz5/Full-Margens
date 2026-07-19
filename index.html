@@ -590,8 +590,8 @@
       <div class="dash-toggles">
         <span class="dash-toggles-rot">Mostrar:</span>
         <label class="dash-check"><input type="checkbox" id="chkVerCusto" checked onchange="renderDashboard()"> Evolução do preço de compra</label>
-        <label class="dash-check"><input type="checkbox" id="chkVerMargem" checked onchange="renderDashboard()"> Evolução da margem - valor</label>
-        <label class="dash-check"><input type="checkbox" id="chkVerMargemPct" checked onchange="renderDashboard()"> Evolução da margem - percentual</label>
+        <label class="dash-check"><input type="checkbox" id="chkVerMargem" onchange="renderDashboard()"> Evolução da margem - valor</label>
+        <label class="dash-check"><input type="checkbox" id="chkVerMargemPct" onchange="renderDashboard()"> Evolução da margem - percentual</label>
       </div>
       <div id="conteudoDash"></div>
       <p class="nota-dash">Para cada combustível, gráficos lado a lado: <b>Evolução do preço de compra</b>, <b>Evolução da margem - valor</b> (em R$) e <b>Evolução da margem - percentual</b> (em %). A margem usa preço de compra, custo do frete e preço de venda dos lançamentos. Cada ponto é a média na data, respeitando os filtros de Data e Posto. No preço de compra, vermelho = subiu (ruim); nas margens, verde = subiu (bom). Use as caixas "Mostrar" para exibir só os gráficos que quiser.</p>
