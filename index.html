@@ -10,6 +10,8 @@
 <meta name="theme-color" content="#1E1E1E">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Postos Full">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -594,7 +596,7 @@
 <body>
 <script>
   // aplica o tema salvo o quanto antes, evitando piscar a tela clara
-  try { if (localStorage.getItem("margens_tema") === "escuro") document.body.classList.add("tema-escuro"); } catch (e) {}
+  try { if (localStorage.getItem("margens_tema") !== "claro") document.body.classList.add("tema-escuro"); } catch (e) {}
 </script>
 
 <div id="telaLogin">
@@ -916,14 +918,15 @@ function entrar(){
 }
 
 // Restaura a preferência do "Lembrar-me" salva neste aparelho
-function aplicarTema(tema){
+function aplicarTema(tema, salvar=true){
   const escuro = (tema === "escuro");
   document.body.classList.toggle("tema-escuro", escuro);
   // destaca a opção ativa (sol/lua) em todos os controles
   document.querySelectorAll(".tema-op").forEach(b => {
     b.classList.toggle("ativo", b.dataset.tema === tema);
   });
-  try { localStorage.setItem("margens_tema", tema); } catch {}
+  // só grava quando for escolha explícita do usuário (clique no sol/lua)
+  if (salvar) { try { localStorage.setItem("margens_tema", tema); } catch {} }
   // re-renderiza para os gráficos assumirem as cores do tema
   if (typeof render === "function") { try { render(); } catch(e){} }
 }
@@ -934,9 +937,11 @@ function alternarTema(){
 }
 
 function restaurarTema(){
-  let tema = "claro";
-  try { tema = localStorage.getItem("margens_tema") || "claro"; } catch {}
-  aplicarTema(tema);
+  // Aparelho novo / primeiro acesso (sem preferência salva) = tema ESCURO por padrão.
+  // Se a pessoa já escolheu antes (claro ou escuro), mantém a escolha dela.
+  let tema = "escuro";
+  try { tema = localStorage.getItem("margens_tema") || "escuro"; } catch {}
+  aplicarTema(tema, false);   // aplica sem gravar: só o clique do usuário grava a preferência
 }
 
 function restaurarLembrarMe(){
