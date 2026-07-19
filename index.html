@@ -597,6 +597,13 @@
 
   <div class="config" id="painelConfig">
     <div class="grupo">
+      <h2>Seu nome</h2>
+      <div class="frete-padrao">
+        <input id="meuNome" maxlength="40" placeholder="Como você quer aparecer no histórico" onchange="salvarMeuNome(this)" onkeydown="if(event.key==='Enter')this.blur()">
+        <span class="nota">Este nome aparece no Histórico no lugar do seu e-mail, para ficar fácil identificar quem fez cada alteração. Vale só para você.</span>
+      </div>
+    </div>
+    <div class="grupo">
       <h2>Postos</h2>
       <div class="chips" id="chipsPosto"></div>
       <div class="add-linha">
@@ -667,9 +674,13 @@ try { db.enablePersistence({ synchronizeTabs: true }).catch(()=>{}); } catch {}
 const colLancamentos = db.collection("lancamentos");
 const docConfig = db.collection("config").doc("geral");
 const colHistorico = db.collection("historico");
+const colPerfis = db.collection("perfis");   // nome amigável por usuário (id do doc = e-mail)
 let usuarioAtual = "";                 // e-mail de quem está logado (para o histórico)
+let nomeUsuario = "";                  // nome amigável do usuário logado
+let perfis = {};                       // mapa e-mail -> nome, sincronizado da nuvem
 let ultimaSync = null;                 // Date da última sincronização com a nuvem
 let escutaHistorico = null;
+let escutaPerfis = null;
 let nuvemPronta = false;        // já recebemos o primeiro retrato da nuvem?
 let escutaLancamentos = null;   // cancelador do listener em tempo real
 let escutaConfig = null;
@@ -771,6 +782,7 @@ auth.onAuthStateChanged(usuario => {
   } else {
     if (escutaLancamentos){ escutaLancamentos(); escutaLancamentos = null; }
     if (escutaConfig){ escutaConfig(); escutaConfig = null; }
+    if (escutaPerfis){ escutaPerfis(); escutaPerfis = null; }
     nuvemPronta = false;
   }
 });
@@ -874,6 +886,8 @@ function renderConfig(){
   });
   const fp = document.getElementById("fretePadrao");
   if (fp) fp.value = fretePadrao.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4});
+  const cn = document.getElementById("meuNome");
+  if (cn && document.activeElement !== cn) cn.value = nomeUsuario || "";
 }
 
 let timerRemocao = null;
@@ -984,11 +998,36 @@ function resumoRegistro(r){
   const n = v => (typeof v === "number" ? v.toLocaleString("pt-BR",{minimumFractionDigits:2}) : v);
   return [r.data, r.posto, r.combustivel, "custo " + n(r.custo), "venda " + n(r.venda)].filter(Boolean).join(" · ");
 }
+// Retorna o nome amigável de um e-mail; se não houver, devolve o próprio e-mail
+function nomeDe(email){
+  if (!email) return "—";
+  const nome = perfis[(email||"").toLowerCase()];
+  return (nome && nome.trim()) ? nome.trim() : email;
+}
+
+// Salva o nome amigável do usuário logado na nuvem (documento com id = e-mail)
+function salvarMeuNome(input){
+  const nome = (input.value || "").trim();
+  if (!usuarioAtual) return;
+  nomeUsuario = nome;
+  colPerfis.doc(usuarioAtual).set({ nome, email: usuarioAtual }, { merge: true })
+    .then(()=>{
+      // feedback visual leve: pisca a borda em verde
+      input.style.transition = "border-color .2s";
+      input.style.borderColor = "#1B7A3D";
+      setTimeout(()=>{ input.style.borderColor = ""; }, 1200);
+      const p = document.getElementById("painelHistorico");
+      if (p && p.classList.contains("aberto")) renderHistorico();
+    })
+    .catch(()=>{});
+}
+
 function registrarHistorico(acao, r){
   if (!nuvemPronta) return;
   const item = {
     acao,                                  // "criou" | "editou" | "excluiu"
-    usuario: usuarioAtual || "—",
+    usuario: usuarioAtual || "—",          // e-mail (mantido para compatibilidade e desambiguação)
+    usuarioNome: nomeUsuario || "",        // nome amigável no momento da ação
     quando: firebase.firestore.FieldValue.serverTimestamp(),
     registroId: r.id || null,
     resumo: resumoRegistro(r),
@@ -1033,6 +1072,19 @@ function iniciarSync(){
     const p = document.getElementById("painelHistorico");
     if (p && p.classList.contains("aberto")) renderHistorico();
   }, ()=>{});
+  // Perfis (nome amigável de cada usuário)
+  escutaPerfis = colPerfis.onSnapshot(snap => {
+    const mapa = {};
+    snap.forEach(doc => { const d = doc.data() || {}; if (d.nome) mapa[doc.id.toLowerCase()] = d.nome; });
+    perfis = mapa;
+    // atualizar o nome do próprio usuário logado
+    nomeUsuario = perfis[(usuarioAtual||"").toLowerCase()] || "";
+    const cn = document.getElementById("meuNome");
+    if (cn && document.activeElement !== cn) cn.value = nomeUsuario;
+    const ph = document.getElementById("painelHistorico");
+    if (ph && ph.classList.contains("aberto")) renderHistorico();
+  }, ()=>{});
+
   // Configurações compartilhadas
   escutaConfig = docConfig.onSnapshot(snap => {
     if (snap.exists){
@@ -1286,7 +1338,7 @@ function renderHistorico(){
     const acao = rotulo[h.acao] || h.acao;
     return `<div class="hist-item">
       <span class="resumo">
-        <span class="quem">${h.usuario}</span>
+        <span class="quem">${nomeDe(h.usuario) !== h.usuario ? nomeDe(h.usuario) : (h.usuarioNome || h.usuario)}</span>
         <span class="acao-${h.acao}"> ${acao} </span>
         ${h.resumo || ""}
       </span>
