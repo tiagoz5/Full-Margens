@@ -213,6 +213,15 @@
     border-radius:6px;font-size:.9rem;text-align:right;font-weight:600;
   }
   .frete-padrao .nota{font-size:.75rem;color:var(--cinza);font-style:italic}
+  .campo-nome{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .campo-nome input{
+    flex:1 1 320px;min-width:220px;max-width:420px;
+    padding:11px 14px;border:1px solid var(--borda);border-radius:8px;
+    font-size:1rem;font-weight:600;color:var(--grafite);
+  }
+  .campo-nome input:focus{outline:none;border-color:var(--verde);box-shadow:0 0 0 3px rgba(255,100,1,.15)}
+  .campo-nome .btn-verde{white-space:nowrap;padding:11px 22px}
+  .nota-nome{display:block;font-size:.75rem;color:var(--cinza);font-style:italic;margin-top:8px;max-width:560px}
 
   /* ---------- Painel de registros ---------- */
   #painelRegistros{display:none}
@@ -598,10 +607,11 @@
   <div class="config" id="painelConfig">
     <div class="grupo">
       <h2>Seu nome</h2>
-      <div class="frete-padrao">
-        <input id="meuNome" maxlength="40" placeholder="Como você quer aparecer no histórico" onchange="salvarMeuNome(this)" onkeydown="if(event.key==='Enter')this.blur()">
-        <span class="nota">Este nome aparece no Histórico no lugar do seu e-mail, para ficar fácil identificar quem fez cada alteração. Vale só para você.</span>
+      <div class="campo-nome">
+        <input id="meuNome" maxlength="40" placeholder="Como você quer aparecer no histórico" onkeydown="if(event.key==='Enter')salvarMeuNome()">
+        <button class="btn-verde" id="btnSalvarNome" onclick="salvarMeuNome()">Salvar</button>
       </div>
+      <span class="nota-nome">Este nome aparece no Histórico no lugar do seu e-mail, para ficar fácil identificar quem fez cada alteração. Vale só para você.</span>
     </div>
     <div class="grupo">
       <h2>Postos</h2>
@@ -1006,20 +1016,27 @@ function nomeDe(email){
 }
 
 // Salva o nome amigável do usuário logado na nuvem (documento com id = e-mail)
-function salvarMeuNome(input){
+function salvarMeuNome(){
+  const input = document.getElementById("meuNome");
   const nome = (input.value || "").trim();
   if (!usuarioAtual) return;
   nomeUsuario = nome;
+  const btn = document.getElementById("btnSalvarNome");
   colPerfis.doc(usuarioAtual).set({ nome, email: usuarioAtual }, { merge: true })
     .then(()=>{
-      // feedback visual leve: pisca a borda em verde
-      input.style.transition = "border-color .2s";
-      input.style.borderColor = "#1B7A3D";
-      setTimeout(()=>{ input.style.borderColor = ""; }, 1200);
+      // feedback claro no botão
+      if (btn){
+        const txtOrig = btn.textContent;
+        btn.textContent = "Salvo \u2713";
+        btn.disabled = true;
+        setTimeout(()=>{ btn.textContent = txtOrig; btn.disabled = false; }, 1600);
+      }
       const p = document.getElementById("painelHistorico");
       if (p && p.classList.contains("aberto")) renderHistorico();
     })
-    .catch(()=>{});
+    .catch(()=>{
+      if (btn){ btn.textContent = "Erro ao salvar"; setTimeout(()=>{ btn.textContent = "Salvar"; }, 2000); }
+    });
 }
 
 function registrarHistorico(acao, r){
