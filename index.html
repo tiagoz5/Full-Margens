@@ -45,29 +45,31 @@
     --erro-bg:#FBEAE6;
     --scroll-track:#EEEEEE;
     --scroll-thumb:#C9C9C9;
-    --grafico-bg:#FFFFFF;   /* fundo dos gráficos: sempre claro p/ legibilidade */
+    --grafico-bg:#FFFFFF;   /* fundo dos gráficos na tela (claro/escuro) */
+    --thead-bg:#1E1E1E;     /* topo da tabela */
     color-scheme:light;
   }
 
   /* ===================== TEMA ESCURO ===================== */
   body.tema-escuro{
-    --fundo:#141414;
-    --superficie:#232323;
-    --superficie-2:#2C2C2C;
-    --linha-par:#282828;
-    --txt:#ECECEC;
-    --cinza:#A6A6A6;
-    --borda:#3C3C3C;
-    --verde-claro:#3A2A1E;
+    --fundo:#1E2122;
+    --superficie:#181A1B;
+    --superficie-2:#1D1F20;
+    --linha-par:#202324;
+    --txt:#D5D1CC;
+    --cinza:#A39B8E;
+    --borda:#393E40;
+    --verde-claro:#421A00;
     --vermelho:#FF6B6B;
-    --menu-bg:#2C2C2C;
-    --menu-txt:#ECECEC;
-    --menu-borda:#454545;
-    --erro-bg:#4A2020;
-    --scroll-track:#2A2A2A;
-    --scroll-thumb:#555555;
+    --menu-bg:#181A1B;
+    --menu-txt:#FF7A2E;
+    --menu-borda:#393E40;
+    --erro-bg:#3A1A18;
+    --scroll-track:#202324;
+    --scroll-thumb:#4A4F50;
+    --grafico-bg:#181A1B;   /* gráficos escuros no tema escuro */
+    --thead-bg:#141516;
     color-scheme:dark;
-    /* --grafite continua escuro (cabeçalho, topo da tabela); --grafico-bg continua claro */
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
@@ -154,7 +156,7 @@
   .tabela-wrap::-webkit-scrollbar-thumb:hover{background:var(--verde)}
   table{width:100%;border-collapse:collapse;min-width:1100px}
   thead th{
-    background:var(--grafite);color:#fff;
+    background:var(--thead-bg);color:#fff;
     font-family:"Oswald","Poppins",sans-serif;
     font-size:.74rem;font-weight:500;text-transform:uppercase;
     letter-spacing:.4px;padding:10px 8px;text-align:center;
@@ -414,11 +416,19 @@
     background:var(--superficie);border-radius:14px;padding:32px 28px;
     width:100%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,.25);
   }
-  .btn-tema-login{
-    position:absolute;top:12px;right:12px;
-    background:var(--superficie-2);color:var(--txt);
-    border:1px solid var(--borda);font-size:.72rem;padding:6px 10px;border-radius:20px;
+  .tema-switch{
+    display:inline-flex;align-items:center;
+    border:1px solid var(--borda);border-radius:20px;overflow:hidden;
+    background:var(--superficie-2);
   }
+  .tema-switch .tema-op{
+    background:transparent;color:var(--cinza);border:none;
+    padding:6px 11px;font-size:1rem;line-height:1;cursor:pointer;border-radius:0;
+    transition:background .15s,color .15s;
+  }
+  .tema-switch .tema-op:hover{filter:none;background:rgba(255,100,1,.12)}
+  .tema-switch .tema-op.ativo{background:var(--verde);color:#fff}
+  .tema-switch-login{position:absolute;top:12px;right:12px}
   .cartao-login .marca{
     text-align:center;margin-bottom:22px;
   }
@@ -516,7 +526,10 @@
 
 <div id="telaLogin">
   <div class="cartao-login">
-    <button class="btn-tema-login" id="btnTemaLogin" onclick="alternarTema()" title="Alternar tema claro/escuro">🌙 Tema escuro</button>
+    <div class="tema-switch tema-switch-login" role="group" aria-label="Tema">
+      <button type="button" class="tema-op" data-tema="claro" onclick="aplicarTema('claro')" title="Tema claro" aria-label="Tema claro">☀️</button>
+      <button type="button" class="tema-op" data-tema="escuro" onclick="aplicarTema('escuro')" title="Tema escuro" aria-label="Tema escuro">🌙</button>
+    </div>
     <div class="marca">
       <img src="logo-full.png" alt="Postos Full" class="logo-login">
       <h1>Controle de Margens</h1>
@@ -565,7 +578,10 @@
       <button class="btn-claro" onclick="imprimir()">🖨️ Imprimir</button>
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
       <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()">👥 Usuários</button>
-      <button class="btn-claro" id="btnTema" onclick="alternarTema()" title="Alternar tema claro/escuro">🌙 Tema escuro</button>
+      <div class="tema-switch" role="group" aria-label="Tema">
+        <button type="button" class="tema-op" data-tema="claro" onclick="aplicarTema('claro')" title="Tema claro" aria-label="Tema claro">☀️</button>
+        <button type="button" class="tema-op" data-tema="escuro" onclick="aplicarTema('escuro')" title="Tema escuro" aria-label="Tema escuro">🌙</button>
+      </div>
       <button class="btn-dourado" onclick="sair()">Sair</button>
     </div>
   </header>
@@ -829,12 +845,13 @@ function entrar(){
 function aplicarTema(tema){
   const escuro = (tema === "escuro");
   document.body.classList.toggle("tema-escuro", escuro);
-  const rotulo = escuro ? "☀️ Tema claro" : "🌙 Tema escuro";
-  ["btnTema","btnTemaLogin"].forEach(id => {
-    const b = document.getElementById(id);
-    if (b) b.textContent = rotulo;
+  // destaca a opção ativa (sol/lua) em todos os controles
+  document.querySelectorAll(".tema-op").forEach(b => {
+    b.classList.toggle("ativo", b.dataset.tema === tema);
   });
   try { localStorage.setItem("margens_tema", tema); } catch {}
+  // re-renderiza para os gráficos assumirem as cores do tema
+  if (typeof render === "function") { try { render(); } catch(e){} }
 }
 
 function alternarTema(){
@@ -1862,25 +1879,34 @@ function graficoSVG(pontos, campo, inverterCor, tipo){
   const rotuloEixo  = v => ehPct ? fmtBR(v,1) + "%" : fmtBR(v,2);
   const rotuloPonto = v => ehPct ? fmtBR(v,2) + "%" : fmtBR(v,3);
 
+  // Paleta do gráfico conforme o tema (na tela). Nos PDFs/impressão é convertida p/ clara.
+  const escuro = document.body.classList.contains("tema-escuro");
+  const cGrade = escuro ? "#3A3D3E" : "#EAEAEA";
+  const cEixo  = escuro ? "#A39B8E" : "#6E6E6E";
+  const cPonto = escuro ? "#E8E6E3" : "#1E1E1E";
+  const cAro   = escuro ? "#181A1B" : "#ffffff";
+  const cBom   = escuro ? "#4CAF6E" : "#1B7A3D";
+  const cRuim  = escuro ? "#FF6B6B" : "#C62828";
+
   let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" font-family="Poppins,Arial,sans-serif">`;
   for (let g = 0; g <= 4; g++){
     const v = vMin + (vMax - vMin) * g / 4, y = Y(v);
-    s += `<line x1="${mL}" y1="${y}" x2="${W-mR}" y2="${y}" stroke="#EAEAEA"/>`;
-    s += `<text x="${mL-8}" y="${y+4}" text-anchor="end" font-size="11" fill="#6E6E6E">${rotuloEixo(v)}</text>`;
+    s += `<line x1="${mL}" y1="${y}" x2="${W-mR}" y2="${y}" stroke="${cGrade}"/>`;
+    s += `<text x="${mL-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${cEixo}">${rotuloEixo(v)}</text>`;
   }
   const caminho = pontos.map((p,i)=>`${i?"L":"M"}${X(i)},${Y(p[campo])}`).join(" ");
   s += `<path d="${caminho}" fill="none" stroke="#FF6401" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
   pontos.forEach((p,i)=>{
     const x = X(i), y = Y(p[campo]);
-    s += `<circle cx="${x}" cy="${y}" r="5" fill="#FF6401" stroke="#fff" stroke-width="2"/>`;
-    s += `<text x="${x}" y="${y-12}" text-anchor="middle" font-size="11" font-weight="600" fill="#1E1E1E">${rotuloPonto(p[campo])}</text>`;
+    s += `<circle cx="${x}" cy="${y}" r="5" fill="#FF6401" stroke="${cAro}" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y-12}" text-anchor="middle" font-size="11" font-weight="600" fill="${cPonto}">${rotuloPonto(p[campo])}</text>`;
     const [a,m,d] = p.data.split("-");
-    s += `<text x="${x}" y="${H-mB+18}" text-anchor="middle" font-size="11" fill="#6E6E6E">${d}/${m}</text>`;
+    s += `<text x="${x}" y="${H-mB+18}" text-anchor="middle" font-size="11" fill="${cEixo}">${d}/${m}</text>`;
     if (i > 0){
       const dif = p[campo] - pontos[i-1][campo];
       const subiu = dif > 0;
       const bom = inverterCor ? subiu : !subiu;   // margem: subir é bom; custo: subir é ruim
-      const cor = bom ? "#1B7A3D" : "#C62828";
+      const cor = bom ? cBom : cRuim;
       let txt = "";
       if (ehPct){
         const pp = Math.round(Math.abs(dif) * 100) / 100;   // pontos percentuais
@@ -2018,6 +2044,12 @@ async function capturarPainelCanvas(el){
       doc.querySelectorAll(".grafico-dash").forEach(g => {
         g.style.overflow = "visible"; g.style.width = "auto"; g.style.maxWidth = "none";
       });
+      // impressão/PDF sempre em fundo claro: normaliza o painel e os gráficos
+      doc.body && doc.body.classList.remove("tema-escuro");
+      doc.querySelectorAll(".grafico-dash svg").forEach(svg => {
+        const claro = svgParaClaro(svg);
+        svg.parentNode.replaceChild(claro, svg);
+      });
       const p = doc.getElementById(el.id);
       if (p) { p.style.width = "1000px"; p.style.maxWidth = "none"; }
     }
@@ -2126,6 +2158,19 @@ async function imprimirPainel(info, nomeArquivo){
   else ultima.onload = () => setTimeout(disparar, 200);
 }
 
+// Converte um gráfico SVG do tema escuro para cores claras (usado em PDFs/impressão,
+// que saem em fundo branco). Retorna um elemento SVG novo com as cores trocadas.
+function svgParaClaro(svgEl){
+  let txt = svgEl.outerHTML;
+  const trocas = [
+    ["#3A3D3E","#EAEAEA"], ["#A39B8E","#6E6E6E"], ["#E8E6E3","#1E1E1E"],
+    ["#181A1B","#ffffff"], ["#4CAF6E","#1B7A3D"], ["#FF6B6B","#C62828"]
+  ];
+  trocas.forEach(([de,para]) => { txt = txt.split(de).join(para); });
+  const doc = new DOMParser().parseFromString(txt, "image/svg+xml");
+  return doc.documentElement;
+}
+
 // Gera o PDF do dashboard como VETOR (texto selecionável e gráficos que não perdem
 // qualidade no zoom), empilhando os gráficos — igual à tela, mas sem ser um "print".
 async function exportarPDFDashboardVetorial(info, nomeArquivo){
@@ -2185,7 +2230,8 @@ async function exportarPDFDashboardVetorial(info, nomeArquivo){
       });
       y += 11;
       // gráfico como vetor
-      await doc.svg(svg, { x: margL, y: y, width: contentW, height: chartH });
+      const svgClaro = document.body.classList.contains("tema-escuro") ? svgParaClaro(svg) : svg;
+      await doc.svg(svgClaro, { x: margL, y: y, width: contentW, height: chartH });
       y += chartH + 6;
     }
   }
