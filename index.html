@@ -34,12 +34,46 @@
     --borda:#DFDFDF;
     --vermelho:#C62828;
     --fundo:#F4F4F4;
+    /* superfícies e texto (temáveis) */
+    --txt:#1E1E1E;
+    --superficie:#FFFFFF;
+    --superficie-2:#F7F7F7;
+    --linha-par:#FAFCF9;
+    --menu-bg:#FFFFFF;
+    --menu-txt:#1E1E1E;
+    --menu-borda:transparent;
+    --erro-bg:#FBEAE6;
+    --scroll-track:#EEEEEE;
+    --scroll-thumb:#C9C9C9;
+    --grafico-bg:#FFFFFF;   /* fundo dos gráficos: sempre claro p/ legibilidade */
+    color-scheme:light;
+  }
+
+  /* ===================== TEMA ESCURO ===================== */
+  body.tema-escuro{
+    --fundo:#141414;
+    --superficie:#232323;
+    --superficie-2:#2C2C2C;
+    --linha-par:#282828;
+    --txt:#ECECEC;
+    --cinza:#A6A6A6;
+    --borda:#3C3C3C;
+    --verde-claro:#3A2A1E;
+    --vermelho:#FF6B6B;
+    --menu-bg:#2C2C2C;
+    --menu-txt:#ECECEC;
+    --menu-borda:#454545;
+    --erro-bg:#4A2020;
+    --scroll-track:#2A2A2A;
+    --scroll-thumb:#555555;
+    color-scheme:dark;
+    /* --grafite continua escuro (cabeçalho, topo da tabela); --grafico-bg continua claro */
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
     font-family:"Poppins","Segoe UI",Arial,sans-serif;
     background:var(--fundo);
-    color:#22301F;
+    color:var(--txt);
     padding:24px 16px 60px;
   }
   .container{max-width:1280px;margin:0 auto}
@@ -76,7 +110,7 @@
   }
   button:hover{filter:brightness(1.1)}
   button:focus-visible{outline:2px solid var(--verde);outline-offset:2px}
-  .btn-claro{background:#fff;color:var(--grafite)}
+  .btn-claro{background:var(--menu-bg);color:var(--menu-txt);border:1px solid var(--menu-borda)}
   .btn-dourado{background:var(--verde);color:#fff}
   .btn-verde{background:var(--verde);color:#fff}
   .btn-excluir{
@@ -86,7 +120,7 @@
 
   /* ---------- Painel de filtros ---------- */
   .filtros{
-    background:#fff;
+    background:var(--superficie);
     border:1px solid var(--borda);
     border-top:none;
     padding:16px 24px;
@@ -108,15 +142,15 @@
 
   /* ---------- Tabela ---------- */
   .tabela-wrap{
-    background:#fff;border:1px solid var(--borda);border-top:none;
+    background:var(--superficie);border:1px solid var(--borda);border-top:none;
     border-radius:0 0 10px 10px;
     overflow-x:auto;overflow-y:auto;
     max-height:60vh;               /* altura máxima ~60% da tela; cabeçalho fica fixo ao rolar */
   }
   /* Barra de rolagem discreta na identidade da marca */
   .tabela-wrap::-webkit-scrollbar{width:9px;height:9px}
-  .tabela-wrap::-webkit-scrollbar-track{background:#EEE}
-  .tabela-wrap::-webkit-scrollbar-thumb{background:#C9C9C9;border-radius:4px}
+  .tabela-wrap::-webkit-scrollbar-track{background:var(--scroll-track)}
+  .tabela-wrap::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:4px}
   .tabela-wrap::-webkit-scrollbar-thumb:hover{background:var(--verde)}
   table{width:100%;border-collapse:collapse;min-width:1100px}
   thead th{
@@ -130,7 +164,7 @@
     border-bottom:1px solid var(--borda);
     padding:4px 6px;text-align:center;font-size:.85rem;
   }
-  tbody tr:nth-child(even){background:#FAFCF9}
+  tbody tr:nth-child(even){background:var(--linha-par)}
   tbody tr:hover{background:var(--verde-claro)}
 
   td input,td select{
@@ -138,9 +172,9 @@
     padding:6px 6px;font-size:.85rem;background:transparent;
     text-align:center;font-family:inherit;
   }
-  td input:hover,td select:hover{border-color:var(--borda);background:#fff}
+  td input:hover,td select:hover{border-color:var(--borda);background:var(--superficie)}
   td input:focus,td select:focus{
-    outline:none;border-color:var(--verde);background:#fff;
+    outline:none;border-color:var(--verde);background:var(--superficie);
     box-shadow:0 0 0 2px rgba(46,91,62,.15);
   }
   td input.num{text-align:right}
@@ -153,13 +187,13 @@
 
   td.calc{
     font-weight:600;font-variant-numeric:tabular-nums;
-    color:var(--grafite);white-space:nowrap;
+    color:var(--txt);white-space:nowrap;
   }
   td.calc.neg{color:var(--vermelho)}
 
   tfoot td{
-    background:#F7F7F7;font-weight:700;font-size:.82rem;
-    padding:10px 8px;color:var(--grafite);
+    background:var(--superficie-2);font-weight:700;font-size:.82rem;
+    padding:10px 8px;color:var(--txt);
     border-top:2px solid var(--verde);white-space:nowrap;
   }
 
@@ -176,7 +210,7 @@
   /* ---------- Painel de configurações ---------- */
   .config{
     display:none;
-    background:#fff;border:1px solid var(--borda);border-top:none;
+    background:var(--superficie);border:1px solid var(--borda);border-top:none;
     padding:18px 24px;
   }
   .config.aberto{display:block}
@@ -196,7 +230,7 @@
     background:none;border:none;color:var(--vermelho);
     font-size:.9rem;padding:0 6px;line-height:1;cursor:pointer;
   }
-  .chip.alerta{border-color:var(--vermelho);background:#FBEAE6}
+  .chip.alerta{border-color:var(--vermelho);background:var(--erro-bg)}
   .chip button.confirmar,.btn-excluir.confirmar{
     background:var(--vermelho);color:#fff;border-radius:12px;
     padding:3px 10px;font-size:.75rem;font-weight:700;
@@ -214,10 +248,10 @@
   }
   .frete-padrao .nota{font-size:.75rem;color:var(--cinza);font-style:italic}
   .filtro-hist{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-  .filtro-hist label{font-size:.85rem;color:var(--grafite);font-weight:600}
+  .filtro-hist label{font-size:.85rem;color:var(--txt);font-weight:600}
   .filtro-hist select{
     padding:8px 12px;border:1px solid var(--borda);border-radius:8px;
-    font-size:.9rem;color:var(--grafite);background:#fff;min-width:200px;max-width:100%;
+    font-size:.9rem;color:var(--txt);background:var(--superficie);min-width:200px;max-width:100%;
   }
   .filtro-hist select:focus{outline:none;border-color:var(--verde)}
   .contador-hist{font-size:.8rem;color:var(--cinza)}
@@ -227,7 +261,7 @@
   .campo-nome input{
     flex:1 1 320px;min-width:220px;max-width:420px;
     padding:11px 14px;border:1px solid var(--borda);border-radius:8px;
-    font-size:1rem;font-weight:600;color:var(--grafite);
+    font-size:1rem;font-weight:600;color:var(--txt);
   }
   .campo-nome input:focus{outline:none;border-color:var(--verde);box-shadow:0 0 0 3px rgba(255,100,1,.15)}
   .campo-nome .btn-verde{white-space:nowrap;padding:11px 22px}
@@ -244,7 +278,7 @@
   .sim-campo{display:flex;flex-direction:column;gap:5px;flex:1;min-width:150px}
   .sim-campo label{
     font-family:"Oswald","Poppins",sans-serif;font-size:.74rem;
-    text-transform:uppercase;letter-spacing:.5px;color:var(--grafite);
+    text-transform:uppercase;letter-spacing:.5px;color:var(--txt);
   }
   .sim-campo input{
     padding:11px 12px;border:1px solid var(--borda);border-radius:8px;
@@ -252,21 +286,21 @@
   }
   .sim-campo select{
     padding:11px 12px;border:1px solid var(--borda);border-radius:8px;
-    font-size:1rem;background:#fff;
+    font-size:1rem;background:var(--superficie);
   }
   .sim-campo input:focus,.sim-campo select:focus{outline:2px solid var(--verde);outline-offset:-1px}
   .sim-resultados{display:flex;gap:16px;flex-wrap:wrap;margin-top:18px}
   .sim-bloco{
-    flex:1;min-width:220px;background:#F7F7F7;border:1px solid var(--borda);
+    flex:1;min-width:220px;background:var(--superficie-2);border:1px solid var(--borda);
     border-left:4px solid var(--verde);border-radius:10px;padding:14px 16px;
   }
   .sim-bloco h4{
     font-family:"Oswald","Poppins",sans-serif;font-size:.82rem;
-    text-transform:uppercase;letter-spacing:.6px;color:var(--grafite);margin-bottom:10px;
+    text-transform:uppercase;letter-spacing:.6px;color:var(--txt);margin-bottom:10px;
   }
   .sim-linha{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:4px 0}
   .sim-linha .rot{font-size:.82rem;color:var(--cinza)}
-  .sim-linha .val{font-size:1.35rem;font-weight:700;color:var(--grafite);font-variant-numeric:tabular-nums}
+  .sim-linha .val{font-size:1.35rem;font-weight:700;color:var(--txt);font-variant-numeric:tabular-nums}
   .sim-linha .val.neg{color:var(--vermelho)}
   .sim-vazio{padding:18px;text-align:center;color:var(--cinza);font-style:italic}
   .sim-acoes{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}
@@ -285,21 +319,21 @@
   }
   /* Barra de rolagem discreta na identidade da marca */
   .lista-hist::-webkit-scrollbar{width:8px}
-  .lista-hist::-webkit-scrollbar-track{background:#EEE;border-radius:4px}
-  .lista-hist::-webkit-scrollbar-thumb{background:#C9C9C9;border-radius:4px}
+  .lista-hist::-webkit-scrollbar-track{background:var(--scroll-track);border-radius:4px}
+  .lista-hist::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:4px}
   .lista-hist::-webkit-scrollbar-thumb:hover{background:var(--verde)}
   .hist-item{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
-    padding:9px 12px;background:#F7F7F7;border:1px solid var(--borda);
+    padding:9px 12px;background:var(--superficie-2);border:1px solid var(--borda);
     border-left:3px solid var(--verde);border-radius:6px;font-size:.84rem;flex-wrap:wrap;
   }
-  .hist-item .quem{font-weight:600;color:var(--grafite)}
+  .hist-item .quem{font-weight:600;color:var(--txt)}
   .hist-item .acao-criou{color:#1B7A3D;font-weight:600}
   .hist-item .acao-editou{color:#B26A00;font-weight:600}
   .hist-item .acao-excluiu{color:var(--vermelho);font-weight:600}
   .hist-item .acao-desfez{color:#5A3FBF;font-weight:600}
   .hist-item .quando{color:var(--cinza);font-size:.76rem}
-  .hist-item .resumo{color:#333;flex:1;min-width:160px}
+  .hist-item .resumo{color:var(--txt);flex:1;min-width:160px}
   .hist-item button{
     background:var(--grafite);color:#fff;border-radius:6px;padding:5px 12px;font-size:.76rem;
   }
@@ -309,17 +343,17 @@
   .dash-controles{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
   .dash-controles label{
     font-family:"Oswald","Poppins",sans-serif;font-size:.78rem;
-    text-transform:uppercase;letter-spacing:.6px;color:var(--grafite);
+    text-transform:uppercase;letter-spacing:.6px;color:var(--txt);
   }
   .dash-controles input[type=date]{
     padding:8px 12px;border:1px solid var(--borda);border-radius:6px;
-    font-size:.9rem;background:#fff;
+    font-size:.9rem;background:var(--superficie);
   }
   .dash-controles input[type=date]:focus{outline:2px solid var(--verde);outline-offset:-1px}
   .bloco-comb{margin-bottom:26px}
   .bloco-comb h3{
     font-family:"Oswald","Poppins",sans-serif;font-size:.95rem;
-    text-transform:uppercase;letter-spacing:.8px;color:var(--grafite);
+    text-transform:uppercase;letter-spacing:.8px;color:var(--txt);
     border-left:4px solid var(--verde);padding-left:10px;margin-bottom:10px;
   }
   .resumo-dash{
@@ -327,33 +361,33 @@
     font-size:.85rem;
   }
   .resumo-dash .cartao-kpi{
-    background:#F7F7F7;border:1px solid var(--borda);border-left:4px solid var(--verde);
+    background:var(--superficie-2);border:1px solid var(--borda);border-left:4px solid var(--verde);
     border-radius:8px;padding:8px 14px;
   }
-  .resumo-dash .cartao-kpi b{display:block;font-size:1.05rem;color:var(--grafite)}
+  .resumo-dash .cartao-kpi b{display:block;font-size:1.05rem;color:var(--txt)}
   .resumo-dash .cartao-kpi b small{font-size:.72rem;color:var(--cinza);font-weight:600}
   .resumo-dash .cartao-kpi span{font-size:.72rem;color:var(--cinza);text-transform:uppercase;letter-spacing:.4px}
   .resumo-dash .sobe{color:var(--vermelho)}
   .resumo-dash .desce{color:#1B7A3D}
   .dash-toggles{
     display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-    margin:0 0 16px;padding:12px 14px;background:#F7F7F7;
+    margin:0 0 16px;padding:12px 14px;background:var(--superficie-2);
     border:1px solid var(--borda);border-radius:10px;
   }
   .dash-toggles-rot{
     font-family:"Oswald","Poppins",sans-serif;font-size:.78rem;
-    text-transform:uppercase;letter-spacing:.5px;color:var(--grafite);font-weight:500;
+    text-transform:uppercase;letter-spacing:.5px;color:var(--txt);font-weight:500;
   }
-  .dash-check{display:flex;align-items:center;gap:7px;font-size:.9rem;color:var(--grafite);cursor:pointer}
+  .dash-check{display:flex;align-items:center;gap:7px;font-size:.9rem;color:var(--txt);cursor:pointer}
   .dash-check input{width:17px;height:17px;accent-color:var(--verde);cursor:pointer}
   .dash-duplo{display:flex;gap:18px;flex-wrap:wrap}
   .dash-card{flex:1 1 380px;min-width:0}
   .dash-card > h4{
     font-family:"Oswald","Poppins",sans-serif;font-size:.86rem;font-weight:500;
-    text-transform:uppercase;letter-spacing:.5px;color:var(--grafite);
+    text-transform:uppercase;letter-spacing:.5px;color:var(--txt);
     margin:0 0 8px;padding-bottom:5px;border-bottom:2px solid var(--verde);
   }
-  .grafico-dash{overflow-x:auto;border:1px solid var(--borda);border-radius:8px;background:#fff;padding:8px}
+  .grafico-dash{overflow-x:auto;border:1px solid var(--borda);border-radius:8px;background:var(--grafico-bg);padding:8px}
   .grafico-dash svg{display:block}
   .nota-dash{font-size:.74rem;color:var(--cinza);font-style:italic;margin-top:8px}
   .dash-vazio{padding:26px;text-align:center;color:var(--cinza);font-style:italic}
@@ -376,8 +410,14 @@
     pointer-events:none;
   }
   .cartao-login{
-    background:#fff;border-radius:14px;padding:32px 28px;
+    position:relative;
+    background:var(--superficie);border-radius:14px;padding:32px 28px;
     width:100%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,.25);
+  }
+  .btn-tema-login{
+    position:absolute;top:12px;right:12px;
+    background:var(--superficie-2);color:var(--txt);
+    border:1px solid var(--borda);font-size:.72rem;padding:6px 10px;border-radius:20px;
   }
   .cartao-login .marca{
     text-align:center;margin-bottom:22px;
@@ -401,7 +441,7 @@
   .cartao-login label{
     display:block;font-size:.72rem;font-weight:600;text-transform:uppercase;
     font-family:"Oswald","Poppins",sans-serif;
-    letter-spacing:.8px;color:var(--grafite);margin:12px 0 4px;
+    letter-spacing:.8px;color:var(--txt);margin:12px 0 4px;
   }
   .cartao-login input{
     width:100%;padding:11px 12px;border:1px solid var(--borda);
@@ -424,7 +464,7 @@
   }
   .cartao-login .lembrar{
     display:flex;align-items:center;gap:8px;cursor:pointer;
-    font-size:.9rem;color:var(--grafite);margin:2px 0 10px;
+    font-size:.9rem;color:var(--txt);margin:2px 0 10px;
   }
   .cartao-login .lembrar input{width:17px;height:17px;accent-color:var(--verde);cursor:pointer}
   .cartao-login .dica-lembrar{
@@ -439,7 +479,7 @@
     margin-top:12px;padding:10px 12px;border-radius:8px;
     font-size:.82rem;display:none;
   }
-  .msg-login.erro{display:block;background:#FBEAE6;color:var(--vermelho)}
+  .msg-login.erro{display:block;background:var(--erro-bg);color:var(--vermelho)}
   .msg-login.ok{display:block;background:var(--verde-claro);color:var(--verde-escuro)}
 
   .usuario-logado{
@@ -456,7 +496,7 @@
   }
   .admin-form input:focus{outline:2px solid var(--verde);outline-offset:-1px}
   .msg-admin{font-size:.8rem;margin-top:8px;display:none;padding:8px 10px;border-radius:6px}
-  .msg-admin.erro{display:block;background:#FBEAE6;color:var(--vermelho)}
+  .msg-admin.erro{display:block;background:var(--erro-bg);color:var(--vermelho)}
   .msg-admin.ok{display:block;background:var(--verde-claro);color:var(--verde-escuro)}
   .link-console{font-size:.78rem;color:var(--verde);text-decoration:underline}
 
@@ -469,9 +509,14 @@
 </style>
 </head>
 <body>
+<script>
+  // aplica o tema salvo o quanto antes, evitando piscar a tela clara
+  try { if (localStorage.getItem("margens_tema") === "escuro") document.body.classList.add("tema-escuro"); } catch (e) {}
+</script>
 
 <div id="telaLogin">
   <div class="cartao-login">
+    <button class="btn-tema-login" id="btnTemaLogin" onclick="alternarTema()" title="Alternar tema claro/escuro">🌙 Tema escuro</button>
     <div class="marca">
       <img src="logo-full.png" alt="Postos Full" class="logo-login">
       <h1>Controle de Margens</h1>
@@ -520,6 +565,7 @@
       <button class="btn-claro" onclick="imprimir()">🖨️ Imprimir</button>
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
       <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()">👥 Usuários</button>
+      <button class="btn-claro" id="btnTema" onclick="alternarTema()" title="Alternar tema claro/escuro">🌙 Tema escuro</button>
       <button class="btn-dourado" onclick="sair()">Sair</button>
     </div>
   </header>
@@ -780,6 +826,28 @@ function entrar(){
 }
 
 // Restaura a preferência do "Lembrar-me" salva neste aparelho
+function aplicarTema(tema){
+  const escuro = (tema === "escuro");
+  document.body.classList.toggle("tema-escuro", escuro);
+  const rotulo = escuro ? "☀️ Tema claro" : "🌙 Tema escuro";
+  ["btnTema","btnTemaLogin"].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.textContent = rotulo;
+  });
+  try { localStorage.setItem("margens_tema", tema); } catch {}
+}
+
+function alternarTema(){
+  const atual = document.body.classList.contains("tema-escuro") ? "escuro" : "claro";
+  aplicarTema(atual === "escuro" ? "claro" : "escuro");
+}
+
+function restaurarTema(){
+  let tema = "claro";
+  try { tema = localStorage.getItem("margens_tema") || "claro"; } catch {}
+  aplicarTema(tema);
+}
+
 function restaurarLembrarMe(){
   try {
     const v = localStorage.getItem("margens_lembrar_me");
@@ -2226,6 +2294,7 @@ function exportarPDFTabela(nomeArquivo){
   doc.save(nomeArquivo + ".pdf");
 }
 
+restaurarTema();
 inicializarDatasFiltro();
 restaurarLembrarMe();
 render();
