@@ -519,6 +519,62 @@
   .msg-admin.ok{display:block;background:var(--verde-claro);color:var(--verde-escuro)}
   .link-console{font-size:.78rem;color:var(--verde);text-decoration:underline}
 
+  /* ================= CELULAR — retrato e telas estreitas ================= */
+  @media (max-width: 640px){
+    body{ padding:12px 8px 40px; }
+    header{ padding:12px 14px; gap:10px; }
+    header h1{ font-size:.98rem; gap:10px; }
+    header .logo-app{ height:30px; }
+    .header-topo{ gap:8px; }
+
+    /* botões do menu preenchem a linha (2 por linha; sozinho estica) */
+    header .acoes{ gap:6px; }
+    header .acoes button{ flex:1 1 calc(50% - 6px); font-size:.82rem; padding:10px 8px; text-align:center; }
+
+    .filtros{ padding:12px 12px; gap:10px; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); }
+    .config{ padding:14px 12px; }
+    .config h2{ font-size:.82rem; }
+
+    /* rolagem suave no toque para tabela e gráficos */
+    .tabela-wrap{ max-height:64vh; -webkit-overflow-scrolling:touch; }
+    .grafico-dash{ -webkit-overflow-scrolling:touch; }
+    tbody td, thead th{ font-size:.8rem; }
+
+    /* cartões de KPI: 2 por linha */
+    .resumo-dash{ gap:10px; }
+    .resumo-dash .cartao-kpi{ flex:1 1 calc(50% - 10px); min-width:0; }
+
+    /* simulador e histórico ocupam a largura toda */
+    .sim-campos, .sim-resultados{ gap:12px; }
+    .sim-campo{ min-width:0; flex:1 1 100%; }
+    .sim-bloco{ min-width:0; flex:1 1 100%; }
+    .hist-item{ font-size:.82rem; }
+    .add-linha{ max-width:none; }
+    .admin-form{ max-width:none; }
+    .campo-nome{ max-width:none; }
+  }
+
+  /* ================= CELULAR muito estreito ================= */
+  @media (max-width: 380px){
+    header .acoes button{ flex:1 1 100%; }        /* 1 botão por linha */
+    .resumo-dash .cartao-kpi{ flex:1 1 100%; }    /* 1 KPI por linha */
+    header h1{ font-size:.9rem; }
+  }
+
+  /* ================= CELULAR DEITADO — paisagem, pouca altura ================= */
+  @media (orientation: landscape) and (max-height: 520px){
+    body{ padding:8px 12px 24px; }
+    header{ padding:8px 16px; gap:6px; }
+    header h1{ font-size:.95rem; }
+    header .logo-app{ height:26px; }
+    .header-topo{ gap:8px; }
+    .usuario-logado{ font-size:.62rem; }
+    .filtros{ padding:10px 16px; gap:8px; }
+    .config{ padding:12px 16px; }
+    /* deitado tem mais largura e menos altura: a tabela usa mais altura */
+    .tabela-wrap{ max-height:76vh; }
+  }
+
   @media print{
     body{background:#fff;padding:0}
     header .acoes,.rodape,td .btn-excluir,thead th:last-child,tbody td:last-child{display:none}
