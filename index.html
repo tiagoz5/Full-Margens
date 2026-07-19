@@ -89,11 +89,14 @@
     border-radius:10px 10px 0 0;
     padding:16px 24px;
     display:flex;
-    justify-content:space-between;
-    align-items:center;
-    flex-wrap:wrap;
-    gap:10px;
+    flex-direction:column;
+    align-items:stretch;
+    gap:14px;
     border-bottom:3px solid var(--verde);
+  }
+  .header-topo{
+    display:flex;justify-content:space-between;align-items:center;
+    gap:12px;flex-wrap:wrap;
   }
   header h1{
     font-family:"Oswald","Poppins",sans-serif;
@@ -573,11 +576,20 @@
 <div class="container" id="appPrincipal" style="display:none">
 
   <header>
-    <h1>
-      <img src="logo-full.png" alt="Postos Full" class="logo-app">
-      <span>Controle de Margens <span id="statusSalvo" aria-live="polite"></span></span>
-      <span class="usuario-logado" id="usuarioLogado"></span>
-    </h1>
+    <div class="header-topo">
+      <h1>
+        <img src="logo-full.png" alt="Postos Full" class="logo-app">
+        <span>Controle de Margens <span id="statusSalvo" aria-live="polite"></span></span>
+        <span class="usuario-logado" id="usuarioLogado"></span>
+      </h1>
+      <div class="tema-bloco">
+        <span class="tema-rotulo">Tema:</span>
+        <div class="tema-switch" role="group" aria-label="Tema">
+          <button type="button" class="tema-op" data-tema="claro" onclick="aplicarTema('claro')" title="Tema claro" aria-label="Tema claro">☀️</button>
+          <button type="button" class="tema-op" data-tema="escuro" onclick="aplicarTema('escuro')" title="Tema escuro" aria-label="Tema escuro">🌙</button>
+        </div>
+      </div>
+    </div>
     <div class="acoes">
       <button class="btn-claro" id="btnDash" onclick="alternarDash()">📈 Dashboard</button>
       <button class="btn-claro" id="btnRegistros" onclick="alternarRegistros()">📋 Lançamentos</button>
@@ -587,13 +599,6 @@
       <button class="btn-claro" onclick="imprimir()">🖨️ Imprimir</button>
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
       <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()">👥 Usuários</button>
-      <div class="tema-bloco">
-        <span class="tema-rotulo">Tema:</span>
-        <div class="tema-switch" role="group" aria-label="Tema">
-          <button type="button" class="tema-op" data-tema="claro" onclick="aplicarTema('claro')" title="Tema claro" aria-label="Tema claro">☀️</button>
-          <button type="button" class="tema-op" data-tema="escuro" onclick="aplicarTema('escuro')" title="Tema escuro" aria-label="Tema escuro">🌙</button>
-        </div>
-      </div>
       <button class="btn-dourado" onclick="sair()">Sair</button>
     </div>
   </header>
