@@ -16,10 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- Bibliotecas de PDF/impressão: carregadas sob demanda (ver carregarBibliotecasPDF) -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -1402,9 +1399,9 @@ function render(){
       <td>${selectHTML("posto", r.posto, i)}</td>
       <td>${selectHTML("forma", r.forma, i)}</td>
       <td>${selectHTML("combustivel", r.combustivel, i)}</td>
-      <td><input class="num" value="${r.custo.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4})}" onchange="atualizarNum(${i},'custo',this)"></td>
-      <td><input class="num" value="${r.frete.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4})}" onchange="atualizarNum(${i},'frete',this)"></td>
-      <td><input class="num" value="${r.venda.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4})}" onchange="atualizarNum(${i},'venda',this)"></td>
+      <td><input class="num" inputmode="decimal" value="${r.custo.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4})}" onchange="atualizarNum(${i},'custo',this)"></td>
+      <td><input class="num" inputmode="decimal" value="${r.frete.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4})}" onchange="atualizarNum(${i},'frete',this)"></td>
+      <td><input class="num" inputmode="decimal" value="${r.venda.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4})}" onchange="atualizarNum(${i},'venda',this)"></td>
       <td class="calc${m.sfR<0?" neg":""}">${fmtRS(m.sfR)}</td>
       <td class="calc${m.sfP<0?" neg":""}">${fmtPct(m.sfP)}</td>
       <td class="calc${m.cfR<0?" neg":""}">${fmtRS(m.cfR)}</td>
@@ -2323,11 +2320,37 @@ async function exportarPDFDashboardVetorial(info, nomeArquivo){
   doc.save(nomeArquivo + ".pdf");
 }
 
+// Carrega as bibliotecas de PDF/impressão só quando necessário (1ª vez que exporta/imprime).
+// Deixa o app abrir bem mais rápido, sem baixar ~350 KB em todo acesso.
+let _promessaLibsPDF = null;
+function carregarBibliotecasPDF(){
+  if (_promessaLibsPDF) return _promessaLibsPDF;
+  const carregar = src => new Promise((ok, err) => {
+    const s = document.createElement("script");
+    s.src = src; s.async = true;
+    s.onload = ok;
+    s.onerror = () => err(new Error("falha ao carregar " + src));
+    document.head.appendChild(s);
+  });
+  _promessaLibsPDF = (async () => {
+    // jsPDF primeiro (autotable e svg2pdf dependem dele)
+    await carregar("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    await Promise.all([
+      carregar("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"),
+      carregar("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"),
+      carregar("https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js")
+    ]);
+  })().catch(e => { _promessaLibsPDF = null; throw e; });  // se falhar (ex.: offline), permite tentar de novo
+  return _promessaLibsPDF;
+}
+
 async function exportarPDF(){
   const info = painelVisivelInfo();
   const nome = pedirNomeArquivo(nomeArquivoPadrao(info));
   if (nome === null) return;
   try {
+    document.body.style.cursor = "progress";
+    await carregarBibliotecasPDF();
     if (info.id === "painelRegistros"){
       exportarPDFTabela(nome);                              // tabela (autoTable, texto real)
     } else if (info.id === "painelDash" && window.svg2pdf){
@@ -2335,15 +2358,17 @@ async function exportarPDF(){
     } else {
       await exportarPDFPainel(info, nome);                  // demais painéis: captura fiel (imagem)
     }
-  } catch(e){ alert("Não foi possível gerar o PDF. Tente novamente."); }
+  } catch(e){ alert("Não foi possível gerar o PDF. Verifique a conexão e tente novamente."); }
+  finally { document.body.style.cursor = ""; }
 }
 
 async function imprimir(){
   const info = painelVisivelInfo();
   const nome = pedirNomeArquivo(nomeArquivoPadrao(info));
   if (nome === null) return;
-  try { await imprimirPainel(info, nome); }
+  try { document.body.style.cursor = "progress"; await carregarBibliotecasPDF(); await imprimirPainel(info, nome); }
   catch(e){ window.print(); }             // fallback: impressão nativa
+  finally { document.body.style.cursor = ""; }
 }
 
 function exportarPDFTabela(nomeArquivo){
