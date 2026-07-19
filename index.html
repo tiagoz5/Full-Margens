@@ -808,7 +808,7 @@ auth.onAuthStateChanged(usuario => {
     document.getElementById("btnUsuarios").style.display = ehAdmin ? "" : "none";
     iniciarSync();
     render();
-    alternarDash();   // abre o Dashboard como painel inicial
+    abrirDashboardInicial();   // garante o Dashboard aberto (sem alternar)
   } else {
     if (escutaLancamentos){ escutaLancamentos(); escutaLancamentos = null; }
     if (escutaConfig){ escutaConfig(); escutaConfig = null; }
@@ -1649,6 +1649,18 @@ function alternarDash(){
   const bd = document.getElementById("btnDash");
   if (bd) bd.classList.toggle("ativo", aberto);
   if (aberto) renderDashboard();
+}
+
+// Abre o Dashboard como painel inicial ao logar. Diferente de alternarDash(),
+// NÃO alterna: se já estiver aberto (ex.: onAuthStateChanged disparar de novo),
+// mantém aberto em vez de fechar.
+function abrirDashboardInicial(){
+  const painel = document.getElementById("painelDash");
+  if (painel && painel.classList.contains("aberto")){
+    renderDashboard();   // já aberto: só garante os gráficos
+    return;
+  }
+  alternarDash();        // fechado: abre normalmente
 }
 
 const fmtBR = (v, casas=2) => v.toLocaleString("pt-BR",{minimumFractionDigits:casas,maximumFractionDigits:casas});
