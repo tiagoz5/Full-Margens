@@ -213,6 +213,16 @@
     border-radius:6px;font-size:.9rem;text-align:right;font-weight:600;
   }
   .frete-padrao .nota{font-size:.75rem;color:var(--cinza);font-style:italic}
+  .filtro-hist{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .filtro-hist label{font-size:.85rem;color:var(--grafite);font-weight:600}
+  .filtro-hist select{
+    padding:8px 12px;border:1px solid var(--borda);border-radius:8px;
+    font-size:.9rem;color:var(--grafite);background:#fff;min-width:200px;max-width:100%;
+  }
+  .filtro-hist select:focus{outline:none;border-color:var(--verde)}
+  .contador-hist{font-size:.8rem;color:var(--cinza)}
+  .hist-rodape{display:flex;justify-content:center;margin-top:12px}
+  .hist-rodape .btn-claro{padding:10px 20px}
   .campo-nome{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .campo-nome input{
     flex:1 1 320px;min-width:220px;max-width:420px;
@@ -561,8 +571,16 @@
         <span id="infoUltimaSync2" class="info-sync"></span>
         <button class="btn-verde" onclick="enviarParaNuvem()">☁️ Enviar lançamentos para a nuvem</button>
       </div>
+      <div class="filtro-hist">
+        <label for="fHistUsuario">Filtrar por usuário:</label>
+        <select id="fHistUsuario" onchange="renderHistorico()"></select>
+        <span id="contadorHist" class="contador-hist"></span>
+      </div>
       <div id="listaHistorico" class="lista-hist"></div>
-      <p class="nota-dash">As últimas alterações feitas por qualquer usuário aparecem aqui, com data e autor. Clique em "Desfazer" para reverter uma alteração (restaura ou remove o lançamento conforme o caso).</p>
+      <div class="hist-rodape">
+        <button id="btnMaisHist" class="btn-claro" style="display:none" onclick="verMaisHistorico()">⬇️ Carregar alterações mais antigas</button>
+      </div>
+      <p class="nota-dash">As alterações feitas por qualquer usuário aparecem aqui, com data e autor. Use o filtro acima para ver só as de um usuário. Clique em "Desfazer" para reverter uma alteração (restaura ou remove o lançamento conforme o caso).</p>
     </div>
   </div>
 
@@ -690,6 +708,8 @@ let nomeUsuario = "";                  // nome amigável do usuário logado
 let perfis = {};                       // mapa e-mail -> nome, sincronizado da nuvem
 let ultimaSync = null;                 // Date da última sincronização com a nuvem
 let escutaHistorico = null;
+let limiteHistorico = 200;              // quantas alterações carregar da nuvem
+let todoHistoricoCarregado = false;     // true quando não há mais registros antigos
 let escutaPerfis = null;
 let nuvemPronta = false;        // já recebemos o primeiro retrato da nuvem?
 let escutaLancamentos = null;   // cancelador do listener em tempo real
@@ -1084,11 +1104,7 @@ function iniciarSync(){
   if (escutaLancamentos) return;  // já ativo
 
   // Histórico de modificações (mais recentes primeiro)
-  escutaHistorico = colHistorico.orderBy("quando", "desc").limit(100).onSnapshot(snap => {
-    historico = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const p = document.getElementById("painelHistorico");
-    if (p && p.classList.contains("aberto")) renderHistorico();
-  }, ()=>{});
+  assinarHistorico();
   // Perfis (nome amigável de cada usuário)
   escutaPerfis = colPerfis.onSnapshot(snap => {
     const mapa = {};
@@ -1340,22 +1356,72 @@ function alternarHistorico(){
   if (aberto) renderHistorico();
 }
 
+function assinarHistorico(){
+  if (escutaHistorico){ escutaHistorico(); escutaHistorico = null; }
+  escutaHistorico = colHistorico.orderBy("quando", "desc").limit(limiteHistorico).onSnapshot(snap => {
+    historico = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    todoHistoricoCarregado = snap.size < limiteHistorico;   // veio menos que o limite = acabou
+    const p = document.getElementById("painelHistorico");
+    if (p && p.classList.contains("aberto")) renderHistorico();
+  }, ()=>{});
+}
+
+// Carrega mais alterações antigas (aumenta o limite e reassina)
+function verMaisHistorico(){
+  limiteHistorico += 300;
+  assinarHistorico();
+}
+
 function renderHistorico(){
   const el = document.getElementById("infoUltimaSync2");
   if (el) el.textContent = ultimaSync ? "Última sincronização: " + fmtDataHora(ultimaSync) : "Ainda não sincronizado";
 
   const alvo = document.getElementById("listaHistorico");
-  if (!historico.length){
-    alvo.innerHTML = '<div class="hist-vazio">Nenhuma modificação registrada ainda. As próximas alterações aparecerão aqui.</div>';
+  const btnMais = document.getElementById("btnMaisHist");
+  const contador = document.getElementById("contadorHist");
+
+  // Nome de exibição de cada alteração (nome amigável ou e-mail)
+  const nomeExib = h => (nomeDe(h.usuario) !== h.usuario ? nomeDe(h.usuario) : (h.usuarioNome || h.usuario || "—"));
+
+  // ---- Popular o filtro de usuário (preservando a seleção atual) ----
+  const selUser = document.getElementById("fHistUsuario");
+  if (selUser){
+    const atual = selUser.value || "Todos";
+    const mapa = {};                       // e-mail -> nome de exibição
+    historico.forEach(h => { const em = h.usuario || "—"; mapa[em] = nomeExib(h); });
+    const emails = Object.keys(mapa).sort((a,b) => mapa[a].localeCompare(mapa[b]));
+    selUser.innerHTML = ['<option value="Todos">Todos os usuários</option>']
+      .concat(emails.map(em => `<option value="${em}">${mapa[em]}</option>`)).join("");
+    selUser.value = [...selUser.options].some(o => o.value === atual) ? atual : "Todos";
+  }
+  const filtroUser = selUser ? selUser.value : "Todos";
+  const lista = (filtroUser && filtroUser !== "Todos")
+    ? historico.filter(h => (h.usuario || "—") === filtroUser)
+    : historico;
+
+  // ---- Contador ----
+  if (contador){
+    contador.textContent = (filtroUser && filtroUser !== "Todos")
+      ? `${lista.length} de ${historico.length} alterações`
+      : `${historico.length} alterações carregadas`;
+  }
+
+  // ---- Botão "carregar mais" (só quando ainda há registros antigos na nuvem) ----
+  if (btnMais) btnMais.style.display = todoHistoricoCarregado ? "none" : "";
+
+  if (!lista.length){
+    alvo.innerHTML = historico.length
+      ? '<div class="hist-vazio">Nenhuma alteração deste usuário na parte carregada. Tente “Carregar alterações mais antigas”.</div>'
+      : '<div class="hist-vazio">Nenhuma modificação registrada ainda. As próximas alterações aparecerão aqui.</div>';
     return;
   }
   const rotulo = { criou:"criou", editou:"editou", excluiu:"excluiu", desfez:"desfez" };
-  alvo.innerHTML = historico.map(h => {
+  alvo.innerHTML = lista.map(h => {
     const quando = h.quando && h.quando.toDate ? fmtDataHora(h.quando.toDate()) : "agora";
     const acao = rotulo[h.acao] || h.acao;
     return `<div class="hist-item">
       <span class="resumo">
-        <span class="quem">${nomeDe(h.usuario) !== h.usuario ? nomeDe(h.usuario) : (h.usuarioNome || h.usuario)}</span>
+        <span class="quem">${nomeExib(h)}</span>
         <span class="acao-${h.acao}"> ${acao} </span>
         ${h.resumo || ""}
       </span>
