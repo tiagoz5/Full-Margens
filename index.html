@@ -1533,12 +1533,14 @@ function dadosDashboard(comb){
   const dIni = document.getElementById("fDataIni").value;
   const dFim = document.getElementById("fDataFim").value;
   const posto = document.getElementById("fPosto").value;
+  const forma = document.getElementById("fForma").value;
   const porData = {};
   registros.forEach(r => {
     if (r.combustivel !== comb) return;
     if (dIni && r.data < dIni) return;
     if (dFim && r.data > dFim) return;
     if (posto && posto !== "Todos" && r.posto !== posto) return;
+    if (forma && forma !== "Todos" && r.forma !== forma) return;
     if (!isFinite(r.custo) || !r.data) return;
     (porData[r.data] = porData[r.data] || []).push(r.custo);
   });
@@ -1553,12 +1555,14 @@ function dadosDashboardMargem(comb){
   const dIni = document.getElementById("fDataIni").value;
   const dFim = document.getElementById("fDataFim").value;
   const posto = document.getElementById("fPosto").value;
+  const forma = document.getElementById("fForma").value;
   const porData = {};
   registros.forEach(r => {
     if (r.combustivel !== comb) return;
     if (dIni && r.data < dIni) return;
     if (dFim && r.data > dFim) return;
     if (posto && posto !== "Todos" && r.posto !== posto) return;
+    if (forma && forma !== "Todos" && r.forma !== forma) return;
     if (!(r.custo > 0) || !(r.venda > 0) || !r.data) return;
     const frete = isFinite(r.frete) ? r.frete : 0;
     const m = margens({ custo: r.custo, frete, venda: r.venda });
@@ -1691,7 +1695,11 @@ function renderDashboard(){
   }
 
   let saida = "";
-  opcoesDe("combustivel").forEach(comb => {
+  const combSel = document.getElementById("fComb").value;
+  const combustiveis = (combSel && combSel !== "Todos")
+    ? [combSel]                          // só o combustível escolhido no filtro
+    : opcoesDe("combustivel");           // "Todos" = todos os combustíveis
+  combustiveis.forEach(comb => {
     const pontos   = verCusto ? dadosDashboard(comb) : [];
     const pontosM  = (verMargem || verMargemPct) ? dadosDashboardMargem(comb) : [];
     if (!pontos.length && !pontosM.length) return;
