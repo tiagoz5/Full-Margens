@@ -539,6 +539,8 @@
   .comp-excluidos>span{font-size:.75rem;color:var(--cinza);font-weight:600}
   .comp-chip{background:var(--superficie-2);border:1px dashed var(--borda);color:var(--txt);border-radius:20px;padding:6px 12px;font-size:.78rem;cursor:pointer}
   .comp-chip:hover{border-color:var(--verde);color:var(--verde)}
+  .comp-topo{display:flex;justify-content:flex-end;margin-bottom:6px}
+  .comp-zerar.zerar-confirma{color:var(--vermelho);border-color:var(--vermelho);font-weight:600}
   .comp-vol-item input,.comp-preco-row input,.comp-dist-nome{
     border:1px solid var(--borda);border-radius:6px;padding:8px;font-size:.9rem;
     background:var(--superficie);color:var(--txt);width:100%;
@@ -1726,8 +1728,13 @@ function renderComparativo(){
   const cont = document.getElementById("conteudoComparativo");
   if (!cont) return;
 
+  // Botão de zerar tudo (confirmação em dois toques, como no resto do app)
+  let html = '<div class="comp-topo">' + (zerarCompPendente
+    ? '<button class="btn-claro comp-zerar zerar-confirma" onclick="zerarComp()">✓ Zerar tudo? Toque para confirmar</button>'
+    : '<button class="btn-claro comp-zerar" onclick="pedirZerarComp()">🧹 Nova cotação (zerar tudo)</button>') + '</div>';
+
   // 1) Volumes do pedido
-  let html = '<div class="comp-sec"><h3 class="comp-tit">1. Volumes do pedido (litros)</h3>';
+  html += '<div class="comp-sec"><h3 class="comp-tit">1. Volumes do pedido (litros)</h3>';
   html += '<p class="nota-dash">Informe quantos litros de cada produto o caminhão vai puxar. Toque no ✕ para tirar da cotação o produto que não entra neste pedido.</p>';
   html += '<div class="comp-grid-vol">';
   combustiveis.forEach(c => {
@@ -1775,6 +1782,16 @@ function renderComparativo(){
   });
   html += '</div>';
   html += '<button class="btn-claro comp-add" onclick="adicionarDistComp()">+ Adicionar distribuidora</button>';
+  // distribuidoras cadastradas no sistema que ainda não estão na cotação: um toque para adicionar
+  const nomesAtuais = comparativo.distribuidoras.map(d => String(d.nome||'').trim().toLowerCase());
+  const cadastradas = opcoesDe("distribuidora").filter(n => nomesAtuais.indexOf(String(n).trim().toLowerCase()) < 0);
+  if (cadastradas.length){
+    html += '<div class="comp-excluidos"><span>Cadastradas no sistema:</span>';
+    cadastradas.forEach(n => {
+      html += '<button class="comp-chip" title="Adicionar '+String(n).replace(/"/g,'&quot;')+' à cotação" onclick="adicionarDistCompNome(\''+escAspas(n)+'\')">+ '+n+'</button>';
+    });
+    html += '</div>';
+  }
   html += '</div>';
 
   // 3) Resultado
@@ -1812,6 +1829,26 @@ function excluirProdutoComp(c){
 }
 function incluirProdutoComp(c){
   comparativo.excluidos = (comparativo.excluidos||[]).filter(x => x !== c);
+  comparativoSalvar(); renderComparativo();
+}
+function adicionarDistCompNome(nome){
+  comparativo.distribuidoras.push({ nome: nome, precos:{} });
+  comparativoSalvar(); renderComparativo();
+}
+
+/* Zerar a cotação inteira (volumes, cotações, fretes e produtos excluídos) */
+let zerarCompPendente = false, timerZerarComp = null;
+function pedirZerarComp(){
+  zerarCompPendente = true;
+  clearTimeout(timerZerarComp);
+  timerZerarComp = setTimeout(()=>{ zerarCompPendente = false; renderComparativo(); }, 4000);
+  renderComparativo();
+}
+function zerarComp(){
+  clearTimeout(timerZerarComp);
+  zerarCompPendente = false;
+  const dists = opcoesDe("distribuidora").slice(0, 4);
+  comparativo = { volumes:{}, excluidos:[], distribuidoras: dists.map(nome => ({ nome, precos:{} })) };
   comparativoSalvar(); renderComparativo();
 }
 
