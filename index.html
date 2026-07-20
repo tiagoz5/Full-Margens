@@ -1565,7 +1565,21 @@ function abrirPainelExclusivo(id){
   const jaAberto = el.classList.contains("aberto");
   fecharTodosPaineis();
   if (!jaAberto) el.classList.add("aberto");
+  atualizarFiltrosVisiveis();
   return !jaAberto;
+}
+
+// A barra de filtros (Data/Posto/Forma/Combustível/Distribuidora) só serve
+// para Lançamentos e Dashboard — nos demais painéis ela fica escondida
+const PAINEIS_COM_FILTROS = ["painelRegistros","painelDash"];
+function atualizarFiltrosVisiveis(){
+  const barra = document.querySelector(".filtros");
+  if (!barra) return;
+  const usa = PAINEIS_COM_FILTROS.some(pid => {
+    const p = document.getElementById(pid);
+    return p && p.classList.contains("aberto");
+  });
+  barra.style.display = usa ? "" : "none";
 }
 
 function alternarRegistros(){
@@ -2931,6 +2945,7 @@ restaurarTema();
 inicializarDatasFiltro();
 restaurarLembrarMe();
 render();
+atualizarFiltrosVisiveis();
 
 /* ================== PWA: service worker ================== */
 if ("serviceWorker" in navigator) {
