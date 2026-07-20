@@ -2712,9 +2712,10 @@ function graficoSVG(pontos, campo, inverterCor, tipo){
 /* Cards do "Resultado no período" do Petros — primeira coisa do Dashboard */
 function renderPetrosResumo(){
   const p = petrosResumo;
-  // Título com a data dos dados (data da última coleta; se ainda não houver, a de hoje)
+  // Título com a data e a hora da última coleta (as vendas na tela vão até esse horário)
   const dataRef = (p && p.atualizadoEm) ? new Date(p.atualizadoEm) : new Date();
-  let html = '<div class="pet-sec"><h3 class="comp-tit">Vendas do dia — '+dataRef.toLocaleDateString("pt-BR")+'</h3>';
+  const horaColeta = (p && p.atualizadoEm) ? ' (até às '+dataRef.toLocaleTimeString("pt-BR").slice(0,5)+')' : '';
+  let html = '<div class="pet-sec"><h3 class="comp-tit">Vendas do dia — '+dataRef.toLocaleDateString("pt-BR")+horaColeta+'</h3>';
   if (!p || (!p.postos && !p.conveniencias)){
     return html + '<p class="nota-dash">Ainda sem dados do Petros. A sincronização diária preenche esta área automaticamente.</p></div>';
   }
