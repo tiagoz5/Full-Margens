@@ -547,6 +547,16 @@
   .cot-selo.velha{background:var(--erro-bg);color:var(--vermelho)}
   .cot-selo.vazia{background:var(--superficie-2);color:var(--cinza);border:1px dashed var(--borda)}
   .cot-quem{font-size:.72rem;color:var(--cinza);margin-top:10px}
+  /* Resultado no período (Petros) no topo do Dashboard */
+  .pet-sec{margin-bottom:26px}
+  .pet-grid{display:flex;flex-wrap:wrap;gap:12px}
+  .pet-card{flex:1 1 230px;border:1px solid var(--borda);border-radius:10px;padding:12px 14px;background:var(--superficie-2)}
+  .pet-card h4{font-family:"Oswald","Poppins",sans-serif;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);margin-bottom:8px}
+  .pet-linhas{display:flex;flex-direction:column;gap:6px}
+  .pet-l{display:flex;justify-content:space-between;gap:10px;font-size:.85rem}
+  .pet-l span{color:var(--cinza)}
+  .pet-l b{color:var(--txt);white-space:nowrap}
+  .pet-info{font-size:.72rem;color:var(--cinza);margin-top:10px}
   .comp-zerar.zerar-confirma{color:var(--vermelho);border-color:var(--vermelho);font-weight:600}
   .comp-vol-item input,.comp-preco-row input,.comp-dist-nome{
     border:1px solid var(--borda);border-radius:6px;padding:8px;font-size:.9rem;
@@ -802,6 +812,7 @@
 
   <div class="config" id="painelDash">
     <div class="grupo">
+      <div id="conteudoPetros"></div>
       <h2>Evolução de preços e margens</h2>
       <div class="dash-toggles">
         <span class="dash-toggles-rot">Mostrar:</span>
@@ -920,6 +931,7 @@ const docConfig = db.collection("config").doc("geral");
 const colHistorico = db.collection("historico");
 const colPerfis = db.collection("perfis");   // nome amigável por usuário (id do doc = e-mail)
 const docCotacoes = db.collection("config").doc("cotacoesDia");   // cotações do dia por distribuidora
+const docPetros = db.collection("config").doc("petrosResumo");    // resumo do Resultado no período (sistema Petros)
 let usuarioAtual = "";                 // e-mail de quem está logado (para o histórico)
 let nomeUsuario = "";                  // nome amigável do usuário logado
 let perfis = {};                       // mapa e-mail -> nome, sincronizado da nuvem
@@ -933,6 +945,8 @@ let escutaLancamentos = null;   // cancelador do listener em tempo real
 let escutaConfig = null;
 let escutaCotacoes = null;
 let cotacoesDia = { dists: {} };   // cotações do dia sincronizadas da nuvem
+let escutaPetros = null;
+let petrosResumo = null;           // resumo do Petros sincronizado da nuvem
 
 /* E-mails com acesso ao painel de usuários */
 const ADMINS = ["tiago.z5@gmail.com"];
@@ -1126,6 +1140,7 @@ function aoMudarLogin(usuario){
     if (escutaConfig){ escutaConfig(); escutaConfig = null; }
     if (escutaPerfis){ escutaPerfis(); escutaPerfis = null; }
     if (escutaCotacoes){ escutaCotacoes(); escutaCotacoes = null; }
+    if (escutaPetros){ escutaPetros(); escutaPetros = null; }
     nuvemPronta = false;
   }
 }
@@ -1456,6 +1471,13 @@ function iniciarSync(){
     if (pc && pc.classList.contains("aberto")) renderCotacoes();
     const pcomp = document.getElementById("painelComparativo");
     if (pcomp && pcomp.classList.contains("aberto")) renderComparativo();
+  }, ()=>{});
+
+  // Resumo do Petros (card "Resultado no período" da rede)
+  escutaPetros = docPetros.onSnapshot(snap => {
+    petrosResumo = snap.exists ? (snap.data() || null) : null;
+    const pd = document.getElementById("painelDash");
+    if (pd && pd.classList.contains("aberto")) renderDashboard();
   }, ()=>{});
 
   // Lançamentos
@@ -2685,6 +2707,39 @@ function graficoSVG(pontos, campo, inverterCor, tipo){
   return s + "</svg>";
 }
 
+/* Cards do "Resultado no período" do Petros — primeira coisa do Dashboard */
+function renderPetrosResumo(){
+  const p = petrosResumo;
+  let html = '<div class="pet-sec"><h3 class="comp-tit">Resultado no período — Rede Full (Petros)</h3>';
+  if (!p || (!p.postos && !p.conveniencias)){
+    return html + '<p class="nota-dash">Ainda sem dados do Petros. A sincronização diária preenche esta área automaticamente.</p></div>';
+  }
+  const ordem = ["Caxias","Pres Dutra","Teresina"];
+  html += '<div class="pet-grid">';
+  ordem.forEach(n => {
+    const d = (p.postos||{})[n]; if (!d) return;
+    html += '<div class="pet-card"><h4>⛽ Posto Full — '+n+'</h4><div class="pet-linhas">' +
+      '<div class="pet-l"><span>Volume</span><b>'+fmtBR(d.volume||0,0)+' L</b></div>' +
+      '<div class="pet-l"><span>Lucro Líquido</span><b>R$ '+fmtBR(d.lucroLiquido||0,2)+'</b></div>' +
+      '<div class="pet-l"><span>Lucro Bruto/L</span><b>R$ '+fmtBR(d.lucroBrutoL||0,4)+'</b></div>' +
+      '<div class="pet-l"><span>Lucro Líquido/L</span><b>R$ '+fmtBR(d.lucroLiquidoL||0,4)+'</b></div>' +
+      '</div></div>';
+  });
+  ordem.forEach(n => {
+    const d = (p.conveniencias||{})[n]; if (!d) return;
+    html += '<div class="pet-card"><h4>🛒 Conveniência Full — '+n+'</h4><div class="pet-linhas">' +
+      '<div class="pet-l"><span>Outros (vendas)</span><b>R$ '+fmtBR(d.outros||0,2)+'</b></div>' +
+      '<div class="pet-l"><span>Lucro Líquido</span><b>R$ '+fmtBR(d.lucroLiquido||0,2)+'</b></div>' +
+      '</div></div>';
+  });
+  html += '</div>';
+  html += '<p class="pet-info">' +
+    (p.atualizadoEm ? '🔄 Atualizado em ' + fmtDataHora(new Date(p.atualizadoEm)) + ' • ' : '') +
+    'Sincronização automática diária. Para atualizar agora, peça ao Claude: "sincroniza o Petros".</p>';
+  html += '</div>';
+  return html;
+}
+
 function renderDashboard(){
   const alvo = document.getElementById("conteudoDash");
   const chkC = document.getElementById("chkVerCusto");
@@ -2693,6 +2748,10 @@ function renderDashboard(){
   const verCusto     = !chkC  || chkC.checked;
   const verMargem    = !chkM  || chkM.checked;
   const verMargemPct = !chkMP || chkMP.checked;
+
+  // Resultado no período (Petros) — primeira coisa do Dashboard, acima dos gráficos
+  const alvoPetros = document.getElementById("conteudoPetros");
+  if (alvoPetros) alvoPetros.innerHTML = renderPetrosResumo();
 
   if (!verCusto && !verMargem && !verMargemPct){
     alvo.innerHTML = '<div class="dash-vazio">Marque ao menos um gráfico em “Mostrar” acima.</div>';
