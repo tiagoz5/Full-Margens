@@ -549,6 +549,7 @@
   .comp-dist-card{flex:1 1 240px;border:1px solid var(--borda);border-radius:10px;padding:12px;background:var(--superficie-2)}
   .comp-dist-head{display:flex;gap:8px;align-items:center;margin-bottom:10px}
   .comp-dist-nome{font-weight:600}
+  select.comp-dist-nome{cursor:pointer;min-width:0;flex:1 1 auto}
   .comp-x{background:transparent;border:1px solid var(--borda);color:var(--cinza);border-radius:6px;padding:6px 10px;cursor:pointer;flex:0 0 auto;font-size:.8rem}
   .comp-x:hover{color:var(--vermelho);border-color:var(--vermelho)}
   .comp-precos{display:flex;flex-direction:column;gap:8px}
@@ -1760,10 +1761,35 @@ function renderComparativo(){
   html += '<div class="comp-sec"><h3 class="comp-tit">2. Cotações por distribuidora (R$/litro)</h3>';
   if (!ativos.length) html += '<p class="nota-dash">Informe ao menos um volume acima para liberar os campos de cotação.</p>';
   html += '<div class="comp-dists">';
+  const cadDists = opcoesDe("distribuidora");
   comparativo.distribuidoras.forEach((d, idx) => {
-    const nome = (d.nome||'').replace(/"/g,'&quot;');
+    const nomeAtual = String(d.nome||'').trim();
+    let campoNome;
+    if (distNomeManual[idx]){
+      // modo "digitar outro nome"
+      campoNome = '<input class="comp-dist-nome" id="compNomeManual'+idx+'" value="'+nomeAtual.replace(/"/g,'&quot;')+'" ' +
+        'placeholder="Digite o nome da distribuidora" onchange="confirmarNomeDistComp('+idx+', this.value)">';
+    } else {
+      // menu suspenso com as distribuidoras cadastradas nas Configurações
+      const usadosOutros = comparativo.distribuidoras
+        .filter((x,i) => i !== idx)
+        .map(x => String(x.nome||'').trim().toLowerCase());
+      let ops = '';
+      if (!nomeAtual) ops += '<option value="" selected>— Escolher distribuidora —</option>';
+      let achou = false;
+      cadDists.forEach(n => {
+        const nt = String(n).trim();
+        if (!nt || usadosOutros.indexOf(nt.toLowerCase()) >= 0) return; // já está em outro card
+        const sel = nomeAtual && nt.toLowerCase() === nomeAtual.toLowerCase();
+        if (sel) achou = true;
+        ops += '<option value="'+nt.replace(/"/g,'&quot;')+'"'+(sel?' selected':'')+'>'+nt+'</option>';
+      });
+      if (nomeAtual && !achou) ops = '<option value="'+nomeAtual.replace(/"/g,'&quot;')+'" selected>'+nomeAtual+'</option>' + ops;
+      ops += '<option value="__digitar__">✏️ Digitar outro nome…</option>';
+      campoNome = '<select class="comp-dist-nome" onchange="escolherNomeDistComp('+idx+', this.value)">'+ops+'</select>';
+    }
     html += '<div class="comp-dist-card"><div class="comp-dist-head">' +
-      '<input class="comp-dist-nome" value="'+nome+'" placeholder="Distribuidora" onchange="setNomeComp('+idx+', this.value)">' +
+      campoNome +
       '<button class="comp-x" title="Remover distribuidora" onclick="removerDistComp('+idx+')">✕</button></div>';
     html += '<div class="comp-frete-row"><span>Frete (R$/L)</span>' +
       '<input type="text" inputmode="decimal" value="'+((d.frete!==undefined&&d.frete!==null)?fmtPrecoComp(d.frete):'')+'" ' +
@@ -1803,7 +1829,27 @@ function renderComparativo(){
 }
 
 function setVolumeComp(c, val){ comparativo.volumes[c] = parseVolComp(val); comparativoSalvar(); renderComparativo(); }
-function setNomeComp(idx, val){ if(comparativo.distribuidoras[idx]){ comparativo.distribuidoras[idx].nome = val.trim(); comparativoSalvar(); atualizarResultadoComp(); } }
+
+/* Nome da distribuidora: menu suspenso com as cadastradas + opção de digitar */
+let distNomeManual = {};
+function escolherNomeDistComp(idx, val){
+  const d = comparativo.distribuidoras[idx]; if(!d) return;
+  if (val === '__digitar__'){
+    distNomeManual[idx] = true;
+    renderComparativo();
+    const el = document.getElementById('compNomeManual'+idx);
+    if (el) el.focus();
+    return;
+  }
+  d.nome = String(val).trim();
+  comparativoSalvar(); renderComparativo();
+}
+function confirmarNomeDistComp(idx, val){
+  const d = comparativo.distribuidoras[idx]; if(!d) return;
+  d.nome = String(val).trim();
+  if (d.nome) distNomeManual[idx] = false;  // com nome definido, volta a mostrar o menu
+  comparativoSalvar(); renderComparativo();
+}
 function setPrecoComp(idx, c, val){
   const d = comparativo.distribuidoras[idx]; if(!d) return;
   if (!d.precos) d.precos = {};
@@ -1820,8 +1866,8 @@ function setFreteComp(idx, val){
 function freteEfetivoComp(d){
   return (d && d.frete !== undefined && d.frete !== null) ? d.frete : (isFinite(fretePadrao) ? fretePadrao : 0);
 }
-function adicionarDistComp(){ comparativo.distribuidoras.push({nome:"", precos:{}}); comparativoSalvar(); renderComparativo(); }
-function removerDistComp(idx){ comparativo.distribuidoras.splice(idx,1); comparativoSalvar(); renderComparativo(); }
+function adicionarDistComp(){ distNomeManual = {}; comparativo.distribuidoras.push({nome:"", precos:{}}); comparativoSalvar(); renderComparativo(); }
+function removerDistComp(idx){ distNomeManual = {}; comparativo.distribuidoras.splice(idx,1); comparativoSalvar(); renderComparativo(); }
 function excluirProdutoComp(c){
   if (!Array.isArray(comparativo.excluidos)) comparativo.excluidos = [];
   if (comparativo.excluidos.indexOf(c) < 0) comparativo.excluidos.push(c);
@@ -1832,6 +1878,7 @@ function incluirProdutoComp(c){
   comparativoSalvar(); renderComparativo();
 }
 function adicionarDistCompNome(nome){
+  distNomeManual = {};
   comparativo.distribuidoras.push({ nome: nome, precos:{} });
   comparativoSalvar(); renderComparativo();
 }
@@ -1847,6 +1894,7 @@ function pedirZerarComp(){
 function zerarComp(){
   clearTimeout(timerZerarComp);
   zerarCompPendente = false;
+  distNomeManual = {};
   const dists = opcoesDe("distribuidora").slice(0, 4);
   comparativo = { volumes:{}, excluidos:[], distribuidoras: dists.map(nome => ({ nome, precos:{} })) };
   comparativoSalvar(); renderComparativo();
