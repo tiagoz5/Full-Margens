@@ -532,6 +532,13 @@
   .comp-grid-vol{display:flex;flex-wrap:wrap;gap:10px}
   .comp-vol-item{flex:1 1 150px;display:flex;flex-direction:column;gap:4px}
   .comp-vol-item label{font-size:.72rem;font-weight:600;color:var(--cinza)}
+  .comp-vol-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .comp-vol-x{background:transparent;border:none;color:var(--cinza);cursor:pointer;font-size:.85rem;padding:2px 6px;line-height:1;border-radius:6px}
+  .comp-vol-x:hover{color:var(--vermelho)}
+  .comp-excluidos{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+  .comp-excluidos>span{font-size:.75rem;color:var(--cinza);font-weight:600}
+  .comp-chip{background:var(--superficie-2);border:1px dashed var(--borda);color:var(--txt);border-radius:20px;padding:6px 12px;font-size:.78rem;cursor:pointer}
+  .comp-chip:hover{border-color:var(--verde);color:var(--verde)}
   .comp-vol-item input,.comp-preco-row input,.comp-dist-nome{
     border:1px solid var(--borda);border-radius:6px;padding:8px;font-size:.9rem;
     background:var(--superficie);color:var(--txt);width:100%;
@@ -1682,10 +1689,14 @@ function comparativoCarregar(){
   if (comparativo) return;
   try {
     const salvo = JSON.parse(localStorage.getItem(CHAVE_COMPARATIVO) || "null");
-    if (salvo && salvo.volumes && Array.isArray(salvo.distribuidoras)) { comparativo = salvo; return; }
+    if (salvo && salvo.volumes && Array.isArray(salvo.distribuidoras)) {
+      comparativo = salvo;
+      if (!Array.isArray(comparativo.excluidos)) comparativo.excluidos = [];
+      return;
+    }
   } catch (e) {}
   const dists = opcoesDe("distribuidora").slice(0, 4);
-  comparativo = { volumes:{}, distribuidoras: dists.map(nome => ({ nome, precos:{} })) };
+  comparativo = { volumes:{}, excluidos:[], distribuidoras: dists.map(nome => ({ nome, precos:{} })) };
 }
 function comparativoSalvar(){ try { localStorage.setItem(CHAVE_COMPARATIVO, JSON.stringify(comparativo)); } catch (e) {} }
 
@@ -1709,21 +1720,32 @@ function escAspas(s){ return String(s).replace(/'/g,"\\'"); }
 
 function renderComparativo(){
   comparativoCarregar();
-  const combustiveis = opcoesDe("combustivel");
+  const todos = opcoesDe("combustivel");
+  const excluidos = todos.filter(c => (comparativo.excluidos||[]).indexOf(c) >= 0);
+  const combustiveis = todos.filter(c => excluidos.indexOf(c) < 0);
   const cont = document.getElementById("conteudoComparativo");
   if (!cont) return;
 
   // 1) Volumes do pedido
   let html = '<div class="comp-sec"><h3 class="comp-tit">1. Volumes do pedido (litros)</h3>';
-  html += '<p class="nota-dash">Informe quantos litros de cada produto o caminhão vai puxar. Deixe 0 no que não entra no pedido.</p>';
+  html += '<p class="nota-dash">Informe quantos litros de cada produto o caminhão vai puxar. Toque no ✕ para tirar da cotação o produto que não entra neste pedido.</p>';
   html += '<div class="comp-grid-vol">';
   combustiveis.forEach(c => {
     const v = comparativo.volumes[c] || 0;
-    html += '<div class="comp-vol-item"><label>'+c+'</label>' +
+    html += '<div class="comp-vol-item"><div class="comp-vol-head"><label>'+c+'</label>' +
+      '<button class="comp-vol-x" title="Tirar '+c.replace(/"/g,'&quot;')+' desta cotação" onclick="excluirProdutoComp(\''+escAspas(c)+'\')">✕</button></div>' +
       '<input type="text" inputmode="numeric" value="'+(v?fmtBR(v,0):'')+'" placeholder="0" ' +
       'onchange="setVolumeComp(\''+escAspas(c)+'\', this.value)"></div>';
   });
-  html += '</div></div>';
+  html += '</div>';
+  if (excluidos.length){
+    html += '<div class="comp-excluidos"><span>Fora desta cotação:</span>';
+    excluidos.forEach(c => {
+      html += '<button class="comp-chip" title="Incluir '+c.replace(/"/g,'&quot;')+' de volta na cotação" onclick="incluirProdutoComp(\''+escAspas(c)+'\')">+ '+c+'</button>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
 
   const ativos = combustiveis.filter(c => (comparativo.volumes[c]||0) > 0);
 
@@ -1783,10 +1805,20 @@ function freteEfetivoComp(d){
 }
 function adicionarDistComp(){ comparativo.distribuidoras.push({nome:"", precos:{}}); comparativoSalvar(); renderComparativo(); }
 function removerDistComp(idx){ comparativo.distribuidoras.splice(idx,1); comparativoSalvar(); renderComparativo(); }
+function excluirProdutoComp(c){
+  if (!Array.isArray(comparativo.excluidos)) comparativo.excluidos = [];
+  if (comparativo.excluidos.indexOf(c) < 0) comparativo.excluidos.push(c);
+  comparativoSalvar(); renderComparativo();
+}
+function incluirProdutoComp(c){
+  comparativo.excluidos = (comparativo.excluidos||[]).filter(x => x !== c);
+  comparativoSalvar(); renderComparativo();
+}
 
 function calcularComparativo(){
   const combustiveis = opcoesDe("combustivel");
-  const ativos = combustiveis.filter(c => (comparativo.volumes[c]||0) > 0);
+  const excl = comparativo.excluidos || [];
+  const ativos = combustiveis.filter(c => excl.indexOf(c) < 0 && (comparativo.volumes[c]||0) > 0);
   const dist = comparativo.distribuidoras.map(d => {
     let custoProd = 0, completo = ativos.length > 0, litros = 0;
     const sub = {};
