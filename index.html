@@ -928,7 +928,9 @@ const ERROS_AUTH = {
   "auth/network-request-failed": "Sem conexão. Verifique a internet e tente de novo.",
   "auth/email-already-in-use": "Já existe um usuário com esse e-mail.",
   "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
-  "auth/user-disabled": "Este usuário está bloqueado."
+  "auth/user-disabled": "Este usuário está bloqueado.",
+  "auth/invalid-action-code": "Este link de confirmação já foi usado ou não é mais válido. Faça o login de novo para receber outro.",
+  "auth/expired-action-code": "Este link de confirmação expirou. Faça o login de novo para receber outro."
 };
 const msgErro = e => ERROS_AUTH[e.code] || ("Erro: " + (e.message || e.code || e));
 
@@ -961,22 +963,82 @@ function mostrarEntrar(){
   document.getElementById("msgLogin").className = "msg-login";
 }
 
+/* ===== Login em duas etapas: senha + link de confirmação por e-mail =====
+   1ª etapa: confere a senha (sessão temporária, sem abrir o app).
+   2ª etapa: o Firebase envia um e-mail com link; só entra quem tocar no link.
+   Com "Lembrar-me" marcado, o aparelho continua logado e não pede de novo.
+   Se a opção "Email link" ainda não estiver ativa no painel do Firebase,
+   o login entra só com a senha (para ninguém ficar trancado para fora). */
+let aguardando2FA = false;
+
 function entrar(){
   const email = document.getElementById("loginEmail").value.trim();
   const senha = document.getElementById("loginSenha").value;
   if(!email || !senha){ avisoLogin("Preencha e-mail e senha.", "erro"); return; }
   const lembrar = document.getElementById("lembrarMe").checked;
   try { localStorage.setItem("margens_lembrar_me", lembrar ? "1" : "0"); } catch {}
-  avisoLogin("Entrando...", "ok");
-  // Lembrar-me marcado = continua logado neste aparelho (LOCAL);
-  // desmarcado = sai ao fechar o navegador (SESSION).
+  avisoLogin("Conferindo a senha...", "ok");
+  aguardando2FA = true;
+  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+    .then(()=> auth.signInWithEmailAndPassword(email, senha))
+    .then(()=> auth.sendSignInLinkToEmail(email, {
+      url: location.origin + location.pathname,   // volta para o próprio app
+      handleCodeInApp: true
+    }))
+    .then(()=> auth.signOut())
+    .then(()=>{
+      try { localStorage.setItem("margens_2fa_email", email); } catch {}
+      document.getElementById("loginSenha").value = "";
+      aguardando2FA = false;
+      avisoLogin("Senha correta! Enviamos um link de confirmação para " + email +
+        ". Abra o e-mail neste aparelho e toque no link para concluir a entrada (confira também o spam).", "ok");
+    })
+    .catch(e => {
+      if (e && e.code === "auth/operation-not-allowed"){
+        // 2ª etapa ainda não ativada no painel do Firebase → entra só com a senha
+        aguardando2FA = false;
+        const persistencia = lembrar
+          ? firebase.auth.Auth.Persistence.LOCAL
+          : firebase.auth.Auth.Persistence.SESSION;
+        auth.setPersistence(persistencia)
+          .then(()=>{
+            document.getElementById("loginSenha").value = "";
+            aoMudarLogin(auth.currentUser);
+          })
+          .catch(()=>{ aoMudarLogin(auth.currentUser); });
+        return;
+      }
+      aguardando2FA = false;
+      auth.signOut().catch(()=>{});
+      avisoLogin(msgErro(e), "erro");
+    });
+}
+
+// Conclui a 2ª etapa quando o app é aberto pelo link do e-mail
+function concluir2FASePreciso(){
+  const href = window.location.href;
+  if (!auth.isSignInWithEmailLink(href)) return;
+  const limparUrl = () => { try { history.replaceState(null, "", location.pathname); } catch {} };
+  let email = "";
+  try { email = localStorage.getItem("margens_2fa_email") || ""; } catch {}
+  if (!email){
+    // link aberto em outro navegador/aparelho: confirma o e-mail por segurança
+    email = (window.prompt("Para concluir a entrada, confirme seu e-mail:") || "").trim();
+  }
+  if (!email){ limparUrl(); return; }
+  let lembrar = true;
+  try { lembrar = (localStorage.getItem("margens_lembrar_me") || "1") === "1"; } catch {}
+  avisoLogin("Confirmando seu acesso...", "ok");
   const persistencia = lembrar
     ? firebase.auth.Auth.Persistence.LOCAL
     : firebase.auth.Auth.Persistence.SESSION;
   auth.setPersistence(persistencia)
-    .then(()=> auth.signInWithEmailAndPassword(email, senha))
-    .then(()=>{ document.getElementById("loginSenha").value = ""; })
-    .catch(e => avisoLogin(msgErro(e), "erro"));
+    .then(()=> auth.signInWithEmailLink(email, href))
+    .then(()=>{
+      try { localStorage.removeItem("margens_2fa_email"); } catch {}
+      limparUrl();
+    })
+    .catch(e => { limparUrl(); avisoLogin(msgErro(e), "erro"); });
 }
 
 // Restaura a preferência do "Lembrar-me" salva neste aparelho
@@ -1024,6 +1086,11 @@ function enviarReset(){
 function sair(){ auth.signOut(); }
 
 auth.onAuthStateChanged(usuario => {
+  if (aguardando2FA) return;   // durante a conferência da senha, o app não abre
+  aoMudarLogin(usuario);
+});
+
+function aoMudarLogin(usuario){
   const logado = !!usuario;
   document.getElementById("telaLogin").style.display = logado ? "none" : "flex";
   document.getElementById("appPrincipal").style.display = logado ? "block" : "none";
@@ -1041,7 +1108,7 @@ auth.onAuthStateChanged(usuario => {
     if (escutaPerfis){ escutaPerfis(); escutaPerfis = null; }
     nuvemPronta = false;
   }
-});
+}
 
 /* ---------- Painel de administração ---------- */
 function alternarAdmin(){
@@ -2945,6 +3012,7 @@ function exportarPDFTabela(nomeArquivo){
 restaurarTema();
 inicializarDatasFiltro();
 restaurarLembrarMe();
+concluir2FASePreciso();   // se o app foi aberto pelo link do e-mail, conclui a entrada
 render();
 atualizarFiltrosVisiveis();
 
