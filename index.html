@@ -721,7 +721,7 @@
     <div class="filtro"><label for="fPosto">Posto</label><select id="fPosto" onchange="render()"></select></div>
     <div class="filtro"><label for="fForma">Forma</label><select id="fForma" onchange="render()"></select></div>
     <div class="filtro"><label for="fComb">Combustível</label><select id="fComb" onchange="render()"></select></div>
-    <div class="filtro"><label for="fDist">Distribuidora</label><select id="fDist" onchange="render()"></select></div>
+    <div class="filtro" id="filtroDist"><label for="fDist">Distribuidora</label><select id="fDist" onchange="render()"></select></div>
   </div>
 
   <div class="config" id="painelSimular">
@@ -794,7 +794,7 @@
         <label class="dash-check"><input type="checkbox" id="chkVerMargemPct" onchange="renderDashboard()"> Evolução da margem - percentual</label>
       </div>
       <div id="conteudoDash"></div>
-      <p class="nota-dash">Para cada combustível, gráficos lado a lado: <b>Evolução do preço de compra</b>, <b>Evolução da margem - valor</b> (em R$) e <b>Evolução da margem - percentual</b> (em %). A margem usa preço de compra, custo do frete e preço de venda dos lançamentos. Cada ponto é a média na data, respeitando os filtros de Data e Posto. No preço de compra, vermelho = subiu (ruim); nas margens, verde = subiu (bom). Use as caixas "Mostrar" para exibir só os gráficos que quiser.</p>
+      <p class="nota-dash">Para cada combustível, gráficos lado a lado: <b>Evolução do preço de compra</b>, <b>Evolução da margem - valor</b> (em R$) e <b>Evolução da margem - percentual</b> (em %). A margem usa preço de compra, custo do frete e preço de venda dos lançamentos. Cada ponto é a média na data, respeitando os filtros de Data, Posto e Forma. No preço de compra, vermelho = subiu (ruim); nas margens, verde = subiu (bom). Use as caixas "Mostrar" para exibir só os gráficos que quiser.</p>
     </div>
   </div>
 
@@ -1575,11 +1575,12 @@ const PAINEIS_COM_FILTROS = ["painelRegistros","painelDash"];
 function atualizarFiltrosVisiveis(){
   const barra = document.querySelector(".filtros");
   if (!barra) return;
-  const usa = PAINEIS_COM_FILTROS.some(pid => {
-    const p = document.getElementById(pid);
-    return p && p.classList.contains("aberto");
-  });
+  const abertoP = pid => { const p = document.getElementById(pid); return !!(p && p.classList.contains("aberto")); };
+  const usa = PAINEIS_COM_FILTROS.some(abertoP);
   barra.style.display = usa ? "" : "none";
+  // No Dashboard o filtro de Distribuidora não tem função — fica escondido só lá
+  const fd = document.getElementById("filtroDist");
+  if (fd) fd.style.display = abertoP("painelDash") ? "none" : "";
 }
 
 function alternarRegistros(){
