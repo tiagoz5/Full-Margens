@@ -549,6 +549,8 @@
   .cot-quem{font-size:.72rem;color:var(--cinza);margin-top:10px}
   /* Resultado no período (Petros) no topo do Dashboard */
   .pet-sec{margin-bottom:26px}
+  .pet-bloco{border:1px solid var(--borda);border-radius:12px;padding:14px;background:var(--superficie);margin-bottom:14px}
+  .pet-bloco-tit{font-family:"Oswald","Poppins",sans-serif;font-size:.95rem;text-transform:uppercase;letter-spacing:.5px;color:var(--txt);margin-bottom:10px}
   .pet-grid{display:flex;flex-wrap:wrap;gap:12px}
   .pet-card{flex:1 1 230px;border:1px solid var(--borda);border-radius:10px;padding:12px 14px;background:var(--superficie-2)}
   .pet-card h4{font-family:"Oswald","Poppins",sans-serif;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);margin-bottom:8px}
@@ -2714,25 +2716,32 @@ function renderPetrosResumo(){
   if (!p || (!p.postos && !p.conveniencias)){
     return html + '<p class="nota-dash">Ainda sem dados do Petros. A sincronização diária preenche esta área automaticamente.</p></div>';
   }
-  const ordem = ["Caxias","Pres Dutra","Teresina"];
-  html += '<div class="pet-grid">';
+  const ordem = ["Teresina","Caxias","Pres Dutra"];       // ordem escolhida pelo Tiago
+  const rotulo = n => n === "Pres Dutra" ? "Dutra" : n;
+
+  // Card 1 — Postos Full
+  html += '<div class="pet-bloco"><h4 class="pet-bloco-tit">⛽ Postos Full</h4><div class="pet-grid">';
   ordem.forEach(n => {
     const d = (p.postos||{})[n]; if (!d) return;
-    html += '<div class="pet-card"><h4>⛽ Posto Full — '+n+'</h4><div class="pet-linhas">' +
+    html += '<div class="pet-card"><h4>'+rotulo(n)+'</h4><div class="pet-linhas">' +
       '<div class="pet-l"><span>Volume</span><b>'+fmtBR(d.volume||0,0)+' L</b></div>' +
       '<div class="pet-l"><span>Lucro Líquido</span><b>R$ '+fmtBR(d.lucroLiquido||0,2)+'</b></div>' +
       '<div class="pet-l"><span>Lucro Bruto/L</span><b>R$ '+fmtBR(d.lucroBrutoL||0,4)+'</b></div>' +
       '<div class="pet-l"><span>Lucro Líquido/L</span><b>R$ '+fmtBR(d.lucroLiquidoL||0,4)+'</b></div>' +
       '</div></div>';
   });
+  html += '</div></div>';
+
+  // Card 2 — Full Conveniência
+  html += '<div class="pet-bloco"><h4 class="pet-bloco-tit">🛒 Full Conveniência</h4><div class="pet-grid">';
   ordem.forEach(n => {
     const d = (p.conveniencias||{})[n]; if (!d) return;
-    html += '<div class="pet-card"><h4>🛒 Conveniência Full — '+n+'</h4><div class="pet-linhas">' +
+    html += '<div class="pet-card"><h4>'+rotulo(n)+'</h4><div class="pet-linhas">' +
       '<div class="pet-l"><span>Outros (vendas)</span><b>R$ '+fmtBR(d.outros||0,2)+'</b></div>' +
       '<div class="pet-l"><span>Lucro Líquido</span><b>R$ '+fmtBR(d.lucroLiquido||0,2)+'</b></div>' +
       '</div></div>';
   });
-  html += '</div>';
+  html += '</div></div>';
   html += '<p class="pet-info">' +
     (p.atualizadoEm ? '🔄 Atualizado em ' + fmtDataHora(new Date(p.atualizadoEm)) + ' • ' : '') +
     'Sincronização automática diária. Para atualizar agora, peça ao Claude: "sincroniza o Petros".</p>';
