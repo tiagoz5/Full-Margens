@@ -539,7 +539,14 @@
   .comp-excluidos>span{font-size:.75rem;color:var(--cinza);font-weight:600}
   .comp-chip{background:var(--superficie-2);border:1px dashed var(--borda);color:var(--txt);border-radius:20px;padding:6px 12px;font-size:.78rem;cursor:pointer}
   .comp-chip:hover{border-color:var(--verde);color:var(--verde)}
-  .comp-topo{display:flex;justify-content:flex-end;margin-bottom:6px}
+  .comp-topo{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:6px}
+  /* Cotações do Dia */
+  .cot-dist-nome{font-weight:600;flex:1 1 auto}
+  .cot-selo{font-size:.7rem;font-weight:700;border-radius:20px;padding:3px 10px;white-space:nowrap}
+  .cot-selo.hoje{background:var(--verde-claro);color:var(--verde)}
+  .cot-selo.velha{background:var(--erro-bg);color:var(--vermelho)}
+  .cot-selo.vazia{background:var(--superficie-2);color:var(--cinza);border:1px dashed var(--borda)}
+  .cot-quem{font-size:.72rem;color:var(--cinza);margin-top:10px}
   .comp-zerar.zerar-confirma{color:var(--vermelho);border-color:var(--vermelho);font-weight:600}
   .comp-vol-item input,.comp-preco-row input,.comp-dist-nome{
     border:1px solid var(--borda);border-radius:6px;padding:8px;font-size:.9rem;
@@ -707,6 +714,7 @@
       <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()">🕐 Histórico</button>
       <button class="btn-claro" id="btnSimular" onclick="alternarSimular()">💰 Simular Margens</button>
       <button class="btn-claro" id="btnComparativo" onclick="alternarComparativo()">🚛 Comparativo de Preços</button>
+      <button class="btn-claro" id="btnCotacoes" onclick="alternarCotacoes()">💲 Cotações do Dia</button>
       <button class="btn-claro" onclick="exportarPDF()">📄 Exportar PDF</button>
       <button class="btn-claro" onclick="imprimir()">🖨️ Imprimir</button>
       <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
@@ -761,6 +769,14 @@
       <p class="nota-dash">Compare o custo total do pedido do caminhão em cada distribuidora: informe os volumes e as cotações, e o app mostra em qual compensa fechar o pedido.</p>
       <div id="conteudoComparativo"></div>
       <canvas id="compCanvas" width="1080" height="1920" style="display:none"></canvas>
+    </div>
+  </div>
+
+  <div class="config" id="painelCotacoes">
+    <div class="grupo">
+      <h2>Cotações do Dia</h2>
+      <p class="nota-dash">Preço do litro cotado em cada distribuidora para o dia de hoje. Os valores ficam salvos na nuvem e aparecem para toda a equipe, em qualquer aparelho.</p>
+      <div id="conteudoCotacoes"></div>
     </div>
   </div>
 
@@ -903,6 +919,7 @@ const colLancamentos = db.collection("lancamentos");
 const docConfig = db.collection("config").doc("geral");
 const colHistorico = db.collection("historico");
 const colPerfis = db.collection("perfis");   // nome amigável por usuário (id do doc = e-mail)
+const docCotacoes = db.collection("config").doc("cotacoesDia");   // cotações do dia por distribuidora
 let usuarioAtual = "";                 // e-mail de quem está logado (para o histórico)
 let nomeUsuario = "";                  // nome amigável do usuário logado
 let perfis = {};                       // mapa e-mail -> nome, sincronizado da nuvem
@@ -914,6 +931,8 @@ let escutaPerfis = null;
 let nuvemPronta = false;        // já recebemos o primeiro retrato da nuvem?
 let escutaLancamentos = null;   // cancelador do listener em tempo real
 let escutaConfig = null;
+let escutaCotacoes = null;
+let cotacoesDia = { dists: {} };   // cotações do dia sincronizadas da nuvem
 
 /* E-mails com acesso ao painel de usuários */
 const ADMINS = ["tiago.z5@gmail.com"];
@@ -1106,6 +1125,7 @@ function aoMudarLogin(usuario){
     if (escutaLancamentos){ escutaLancamentos(); escutaLancamentos = null; }
     if (escutaConfig){ escutaConfig(); escutaConfig = null; }
     if (escutaPerfis){ escutaPerfis(); escutaPerfis = null; }
+    if (escutaCotacoes){ escutaCotacoes(); escutaCotacoes = null; }
     nuvemPronta = false;
   }
 }
@@ -1429,6 +1449,15 @@ function iniciarSync(){
     }
   }, ()=>{});
 
+  // Cotações do dia (preço do litro por distribuidora)
+  escutaCotacoes = docCotacoes.onSnapshot(snap => {
+    cotacoesDia = (snap.exists && snap.data() && snap.data().dists) ? snap.data() : { dists: {} };
+    const pc = document.getElementById("painelCotacoes");
+    if (pc && pc.classList.contains("aberto")) renderCotacoes();
+    const pcomp = document.getElementById("painelComparativo");
+    if (pcomp && pcomp.classList.contains("aberto")) renderComparativo();
+  }, ()=>{});
+
   // Lançamentos
   escutaLancamentos = colLancamentos.onSnapshot(async snap => {
     const daNuvem = [];
@@ -1603,7 +1632,7 @@ function excluir(i){
 
 /* ================== Salvar / Carregar / Exportar ================== */
 // Painéis que ocupam a página; só um fica aberto por vez
-const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelConfig","painelAdmin"];
+const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelCotacoes","painelConfig","painelAdmin"];
 function fecharTodosPaineis(exceto){
   PAINEIS.forEach(id => {
     const el = document.getElementById(id);
@@ -1624,6 +1653,8 @@ function fecharTodosPaineis(exceto){
   if (bs) bs.classList.toggle("ativo", document.getElementById("painelSimular").classList.contains("aberto"));
   const bcomp = document.getElementById("btnComparativo");
   if (bcomp) bcomp.classList.toggle("ativo", document.getElementById("painelComparativo").classList.contains("aberto"));
+  const bcot = document.getElementById("btnCotacoes");
+  if (bcot) bcot.classList.toggle("ativo", document.getElementById("painelCotacoes").classList.contains("aberto"));
 }
 
 // Abre um painel fechando os demais; se já estava aberto, apenas fecha (liga/desliga)
@@ -1766,6 +1797,75 @@ function alternarSimular(){
   if (aberto) prepararSimulador();
 }
 
+/* ================== Cotações do Dia ================== */
+function alternarCotacoes(){
+  const aberto = abrirPainelExclusivo("painelCotacoes");
+  const b = document.getElementById("btnCotacoes");
+  if (b) b.classList.toggle("ativo", aberto);
+  if (aberto) renderCotacoes();
+}
+function hojeISO(){
+  const h = new Date();
+  return h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");
+}
+function fmtDataCurta(iso){
+  const p = String(iso||"").split("-");
+  return p.length === 3 ? p[2]+"/"+p[1]+"/"+p[0] : (iso||"");
+}
+function renderCotacoes(){
+  const cont = document.getElementById("conteudoCotacoes");
+  if (!cont) return;
+  const combustiveis = opcoesDe("combustivel");
+  const dists = opcoesDe("distribuidora");
+  const hoje = hojeISO();
+  if (!dists.length){
+    cont.innerHTML = '<p class="nota-dash">Cadastre as distribuidoras nas Configurações para lançar as cotações.</p>';
+    return;
+  }
+  let html = '<div class="comp-dists">';
+  dists.forEach(nome => {
+    const d = (cotacoesDia.dists||{})[nome] || {};
+    const precos = d.precos || {};
+    const temPreco = Object.keys(precos).length > 0;
+    html += '<div class="comp-dist-card"><div class="comp-dist-head">' +
+      '<span class="cot-dist-nome">'+nome+'</span>';
+    if (temPreco && d.data){
+      const atrasada = d.data !== hoje;
+      html += '<span class="cot-selo '+(atrasada?'velha':'hoje')+'">'+(atrasada ? '⚠️ '+fmtDataCurta(d.data) : '✓ hoje')+'</span>';
+    } else {
+      html += '<span class="cot-selo vazia">sem cotação</span>';
+    }
+    html += '</div><div class="comp-precos">';
+    combustiveis.forEach(c => {
+      const p = precos[c] || 0;
+      html += '<div class="comp-preco-row"><span>'+c+'</span>' +
+        '<input type="text" inputmode="decimal" value="'+fmtPrecoComp(p)+'" placeholder="0,00" ' +
+        'onchange="setPrecoCotacao(\''+escAspas(nome)+'\', \''+escAspas(c)+'\', this.value)"></div>';
+    });
+    html += '</div>';
+    if (temPreco && (d.data || d.por)){
+      html += '<p class="cot-quem">Atualizado' +
+        (d.data ? ' em '+fmtDataCurta(d.data) : '') +
+        (d.por ? ' por '+nomeDe(d.por) : '') + '</p>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '<p class="nota-dash" style="margin-top:14px">Dica: no Comparativo de Preços, o botão "📥 Usar cotações do dia" preenche as cotações automaticamente com estes valores.</p>';
+  cont.innerHTML = html;
+}
+function setPrecoCotacao(dist, comb, val){
+  const v = parsePrecoComp(val);
+  if (!cotacoesDia.dists) cotacoesDia.dists = {};
+  const d = cotacoesDia.dists[dist] || (cotacoesDia.dists[dist] = { precos:{} });
+  if (!d.precos) d.precos = {};
+  if (v > 0) d.precos[comb] = v; else delete d.precos[comb];
+  d.data = hojeISO();
+  d.por = usuarioAtual || "";
+  docCotacoes.set(cotacoesDia).catch(()=>{});
+  renderCotacoes();
+}
+
 /* ================== Comparativo de Preços ================== */
 let comparativo = null;
 const CHAVE_COMPARATIVO = "margens_comparativo";
@@ -1811,8 +1911,12 @@ function renderComparativo(){
   const cont = document.getElementById("conteudoComparativo");
   if (!cont) return;
 
-  // Botão de zerar tudo (confirmação em dois toques, como no resto do app)
-  let html = '<div class="comp-topo">' + (zerarCompPendente
+  // Botões do topo: usar cotações do dia + zerar tudo (confirmação em dois toques)
+  const temCotacoesDia = Object.keys((cotacoesDia && cotacoesDia.dists) || {})
+    .some(n => cotacoesDia.dists[n] && cotacoesDia.dists[n].precos && Object.keys(cotacoesDia.dists[n].precos).length);
+  let html = '<div class="comp-topo">' +
+    (temCotacoesDia ? '<button class="btn-claro" onclick="usarCotacoesDia()">📥 Usar cotações do dia</button>' : '') +
+    (zerarCompPendente
     ? '<button class="btn-claro comp-zerar zerar-confirma" onclick="zerarComp()">✓ Zerar tudo? Toque para confirmar</button>'
     : '<button class="btn-claro comp-zerar" onclick="pedirZerarComp()">🧹 Nova cotação (zerar tudo)</button>') + '</div>';
 
@@ -1962,6 +2066,25 @@ function incluirProdutoComp(c){
 function adicionarDistCompNome(nome){
   distNomeManual = {};
   comparativo.distribuidoras.push({ nome: nome, precos:{} });
+  comparativoSalvar(); renderComparativo();
+}
+
+/* Preenche o Comparativo com as Cotações do Dia salvas na nuvem */
+function usarCotacoesDia(){
+  const dists = (cotacoesDia && cotacoesDia.dists) || {};
+  const comCotacao = Object.keys(dists).filter(n => dists[n] && dists[n].precos && Object.keys(dists[n].precos).length);
+  if (!comCotacao.length) return;
+  comCotacao.forEach(nome => {
+    const alvoIdx = comparativo.distribuidoras.findIndex(d =>
+      String(d.nome||'').trim().toLowerCase() === String(nome).trim().toLowerCase());
+    if (alvoIdx >= 0){
+      const d = comparativo.distribuidoras[alvoIdx];
+      d.precos = Object.assign({}, d.precos || {}, dists[nome].precos);
+    } else {
+      comparativo.distribuidoras.push({ nome: nome, precos: Object.assign({}, dists[nome].precos) });
+    }
+  });
+  distNomeManual = {};
   comparativoSalvar(); renderComparativo();
 }
 
@@ -2635,6 +2758,8 @@ function painelVisivelInfo(){
     ["painelDash",      "Dashboard",   "dashboard"],
     ["painelHistorico", "Histórico",   "historico"],
     ["painelSimular",   "Simular Margens", "simulacao"],
+    ["painelComparativo", "Comparativo de Preços", "comparativo"],
+    ["painelCotacoes",  "Cotações do Dia", "cotacoes"],
     ["painelConfig",    "Configurações", "configuracoes"],
     ["painelAdmin",     "Usuários",    "usuarios"],
   ];
