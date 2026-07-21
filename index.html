@@ -722,10 +722,11 @@
   .comp-preco-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .comp-preco-row span{font-size:.8rem;color:var(--txt);flex:1 1 auto}
   .comp-preco-row input{max-width:120px;text-align:right}
-  .cot-preco-campo{display:flex;align-items:center;gap:6px;flex:0 0 auto}
-  .cot-preco-campo input{max-width:110px;text-align:right}
-  .cot-undo{background:transparent;border:1px solid var(--borda);color:var(--cinza);border-radius:6px;padding:6px 8px;cursor:pointer;font-size:.85rem;line-height:1;flex:0 0 auto}
+  .cot-preco-campo{display:flex;align-items:center;gap:6px;flex:0 0 auto;justify-content:flex-end}
+  .cot-preco-campo input{width:110px;max-width:110px;flex:0 0 auto;text-align:right}
+  .cot-undo{background:transparent;border:1px solid var(--borda);color:var(--cinza);border-radius:6px;padding:6px 0;width:34px;text-align:center;cursor:pointer;font-size:.85rem;line-height:1;flex:0 0 auto}
   .cot-undo:hover{color:var(--verde);border-color:var(--verde)}
+  .cot-undo.oculto{visibility:hidden;pointer-events:none}
   .comp-add{margin-top:12px}
   .comp-melhor{border:2px solid var(--verde);border-radius:12px;padding:14px 16px;background:var(--verde-claro);margin-bottom:16px}
   .comp-melhor-tag{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--verde)}
@@ -2490,11 +2491,14 @@ function renderCotacoes(){
   const cont = document.getElementById("conteudoCotacoes");
   if (!cont) return;
   const combustiveis = opcoesDe("combustivel");
-  const dists = opcoesDe("distribuidora");
-  if (!dists.length){
+  const todasDists = opcoesDe("distribuidora");
+  if (!todasDists.length){
     cont.innerHTML = '<p class="nota-dash">Cadastre as distribuidoras nas Configurações para lançar as cotações.</p>';
     return;
   }
+  // Vibra sempre primeiro; as demais na ordem original
+  const dists = todasDists.filter(n => String(n).toLowerCase() === "vibra")
+    .concat(todasDists.filter(n => String(n).toLowerCase() !== "vibra"));
   if (!cotEdit || !cotEdit.dists) cotEdit = { dists:{} };
   const ehHoje = cotDataSel === hojeISO();
   let html = '<div class="comp-dists">';
@@ -2515,9 +2519,7 @@ function renderCotacoes(){
         '<span class="cot-preco-campo">' +
           '<input type="text" inputmode="decimal" value="'+fmtPrecoComp(p)+'" placeholder="0,00" ' +
             'onchange="setPrecoCotacao(\''+escAspas(nome)+'\', \''+escAspas(c)+'\', this.value)">' +
-          (temDesfazer
-            ? '<button class="cot-undo" title="Desfazer este preço (voltar ao anterior)" onclick="voltarPreco(\''+escAspas(nome)+'\', \''+escAspas(c)+'\')">↩</button>'
-            : '') +
+          '<button class="cot-undo'+(temDesfazer?'':' oculto')+'" title="Desfazer este preço (voltar ao anterior)" onclick="voltarPreco(\''+escAspas(nome)+'\', \''+escAspas(c)+'\')">↩</button>' +
         '</span>' +
       '</div>';
     });
