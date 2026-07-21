@@ -594,6 +594,12 @@
   .cot-selo.velha{background:var(--erro-bg);color:var(--vermelho)}
   .cot-selo.vazia{background:var(--superficie-2);color:var(--cinza);border:1px dashed var(--borda)}
   .cot-quem{font-size:.72rem;color:var(--cinza);margin-top:10px}
+  .cot-controles{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:4px 0 16px}
+  .cot-data-lbl{display:flex;align-items:center;gap:8px;font-weight:600;font-size:.9rem}
+  .cot-data-lbl input{padding:8px 10px;border:1px solid var(--borda);border-radius:8px;background:var(--superficie);color:var(--texto);font-size:.95rem}
+  .cot-status{font-size:.82rem;font-weight:600}
+  .cot-status.ok{color:var(--verde)}
+  .cot-status.pend{color:var(--vermelho)}
   /* Resultado no período (Petros) no topo do Dashboard */
   .pet-sec{margin-bottom:26px}
   .pet-bloco{border:1px solid var(--borda);border-radius:12px;padding:14px;background:var(--superficie);margin-bottom:14px}
@@ -984,7 +990,14 @@
   <div class="config" id="painelCotacoes">
     <div class="grupo">
       <h2>Cotações do Dia</h2>
-      <p class="nota-dash">Preço do litro cotado em cada distribuidora para o dia de hoje. Os valores ficam salvos na nuvem e aparecem para toda a equipe, em qualquer aparelho.</p>
+      <p class="nota-dash">Preço do litro cotado em cada distribuidora. Escolha o dia para conferir ou lançar as cotações; os valores ficam salvos na nuvem por data e aparecem para toda a equipe, em qualquer aparelho.</p>
+      <div class="cot-controles">
+        <label class="cot-data-lbl">Dia:
+          <input type="date" id="cotData" onchange="carregarCotDia()">
+        </label>
+        <button class="btn-verde" id="btnSalvarCot" onclick="salvarCotacoes()">💾 Salvar cotações</button>
+        <span class="cot-status" id="cotStatus"></span>
+      </div>
       <div id="conteudoCotacoes"></div>
     </div>
   </div>
@@ -1205,7 +1218,10 @@ let nuvemPronta = false;        // já recebemos o primeiro retrato da nuvem?
 let escutaLancamentos = null;   // cancelador do listener em tempo real
 let escutaConfig = null;
 let escutaCotacoes = null;
-let cotacoesDia = { dists: {} };   // cotações do dia sincronizadas da nuvem
+let cotacoesDia = { dists: {} };   // cotações de HOJE sincronizadas da nuvem (config/cotacoesDia)
+let cotEdit = { dists: {} };       // buffer editável do dia selecionado
+let cotDataSel = "";               // dia selecionado (YYYY-MM-DD)
+let cotDirty = false;              // há alterações não salvas?
 let escutaPetros = null;
 let petrosResumo = null;           // resumo do Petros sincronizado da nuvem
 let escutaAvisos = null;
@@ -1935,7 +1951,7 @@ function iniciarSync(){
   escutaCotacoes = docCotacoes.onSnapshot(snap => {
     cotacoesDia = (snap.exists && snap.data() && snap.data().dists) ? snap.data() : { dists: {} };
     const pc = document.getElementById("painelCotacoes");
-    if (pc && pc.classList.contains("aberto")) renderCotacoes();
+    if (pc && pc.classList.contains("aberto") && cotDataSel === hojeISO() && !cotDirty) carregarCotDia();
     const pcomp = document.getElementById("painelComparativo");
     if (pcomp && pcomp.classList.contains("aberto")) renderComparativo();
   }, ()=>{});
@@ -2223,7 +2239,7 @@ function fecharMenuLateral(){
 let empresa = "postos";
 const CHAVE_EMPRESA = "margens_empresa";
 const MENU_SO_POSTOS = ["btnDash","btnRegistros","btnHistorico","btnSimular"];
-const MENU_SO_TRANSP = ["btnComparativo","btnPuxadas"];
+const MENU_SO_TRANSP = ["btnComparativo","btnCotacoes","btnPuxadas"];
 
 function aplicarEmpresa(trocarPainel){
   const ehTransp = empresa === "transportadora";
@@ -2427,7 +2443,29 @@ function alternarCotacoes(){
   const aberto = abrirPainelExclusivo("painelCotacoes");
   const b = document.getElementById("btnCotacoes");
   if (b) b.classList.toggle("ativo", aberto);
-  if (aberto) renderCotacoes();
+  if (aberto){
+    const dt = document.getElementById("cotData");
+    if (dt && !dt.value) dt.value = hojeISO();
+    carregarCotDia();
+  }
+}
+function carregarCotDia(){
+  const dt = document.getElementById("cotData");
+  cotDataSel = (dt && dt.value) || hojeISO();
+  cotDirty = false;
+  const st = document.getElementById("cotStatus");
+  if (st){ st.textContent = ""; st.className = "cot-status"; }
+  if (cotDataSel === hojeISO()){
+    cotEdit = JSON.parse(JSON.stringify(cotacoesDia && cotacoesDia.dists ? cotacoesDia : { dists:{} }));
+    if (!cotEdit.dists) cotEdit.dists = {};
+    renderCotacoes();
+    return;
+  }
+  db.collection("cotacoes").doc(cotDataSel).get().then(snap => {
+    cotEdit = (snap.exists && snap.data() && snap.data().dists) ? JSON.parse(JSON.stringify(snap.data())) : { dists:{} };
+    if (!cotEdit.dists) cotEdit.dists = {};
+    renderCotacoes();
+  }).catch(()=>{ cotEdit = { dists:{} }; renderCotacoes(); });
 }
 function hojeISO(){
   const h = new Date();
@@ -2442,24 +2480,20 @@ function renderCotacoes(){
   if (!cont) return;
   const combustiveis = opcoesDe("combustivel");
   const dists = opcoesDe("distribuidora");
-  const hoje = hojeISO();
   if (!dists.length){
     cont.innerHTML = '<p class="nota-dash">Cadastre as distribuidoras nas Configurações para lançar as cotações.</p>';
     return;
   }
+  if (!cotEdit || !cotEdit.dists) cotEdit = { dists:{} };
+  const ehHoje = cotDataSel === hojeISO();
   let html = '<div class="comp-dists">';
   dists.forEach(nome => {
-    const d = (cotacoesDia.dists||{})[nome] || {};
+    const d = (cotEdit.dists||{})[nome] || {};
     const precos = d.precos || {};
     const temPreco = Object.keys(precos).length > 0;
     html += '<div class="comp-dist-card"><div class="comp-dist-head">' +
       '<span class="cot-dist-nome">'+nome+'</span>';
-    if (temPreco && d.data){
-      const atrasada = d.data !== hoje;
-      html += '<span class="cot-selo '+(atrasada?'velha':'hoje')+'">'+(atrasada ? '⚠️ '+fmtDataCurta(d.data) : '✓ hoje')+'</span>';
-    } else {
-      html += '<span class="cot-selo vazia">sem cotação</span>';
-    }
+    html += '<span class="cot-selo '+(temPreco?'hoje':'vazia')+'">'+(temPreco?'✓ lançada':'sem cotação')+'</span>';
     html += '</div><div class="comp-precos">';
     combustiveis.forEach(c => {
       const p = precos[c] || 0;
@@ -2468,27 +2502,53 @@ function renderCotacoes(){
         'onchange="setPrecoCotacao(\''+escAspas(nome)+'\', \''+escAspas(c)+'\', this.value)"></div>';
     });
     html += '</div>';
-    if (temPreco && (d.data || d.por)){
-      html += '<p class="cot-quem">Atualizado' +
-        (d.data ? ' em '+fmtDataCurta(d.data) : '') +
-        (d.por ? ' por '+nomeDe(d.por) : '') + '</p>';
+    if (temPreco && d.por){
+      html += '<p class="cot-quem">Lançado por '+nomeDe(d.por)+'</p>';
     }
     html += '</div>';
   });
   html += '</div>';
-  html += '<p class="nota-dash" style="margin-top:14px">Dica: no Comparativo de Preços, o botão "📥 Usar cotações do dia" preenche as cotações automaticamente com estes valores.</p>';
+  html += '<p class="nota-dash" style="margin-top:14px">' +
+    (ehHoje
+      ? 'Preencha as cotações de hoje e toque em <b>💾 Salvar cotações</b>. Para conferir outro dia, escolha a data acima.'
+      : 'Você está vendo as cotações de <b>'+fmtDataCurta(cotDataSel)+'</b>. Alterações só são gravadas ao tocar em <b>💾 Salvar cotações</b>.') +
+    '</p>';
   cont.innerHTML = html;
 }
 function setPrecoCotacao(dist, comb, val){
   const v = parsePrecoComp(val);
-  if (!cotacoesDia.dists) cotacoesDia.dists = {};
-  const d = cotacoesDia.dists[dist] || (cotacoesDia.dists[dist] = { precos:{} });
+  if (!cotEdit.dists) cotEdit.dists = {};
+  const d = cotEdit.dists[dist] || (cotEdit.dists[dist] = { precos:{} });
   if (!d.precos) d.precos = {};
   if (v > 0) d.precos[comb] = v; else delete d.precos[comb];
-  d.data = hojeISO();
   d.por = usuarioAtual || "";
-  docCotacoes.set(cotacoesDia).catch(()=>{});
-  renderCotacoes();
+  cotDirty = true;
+  const st = document.getElementById("cotStatus");
+  if (st){ st.textContent = "Alterações não salvas"; st.className = "cot-status pend"; }
+}
+function salvarCotacoes(){
+  const data = cotDataSel || hojeISO();
+  const st = document.getElementById("cotStatus");
+  const payload = { dists:{}, data: data, por: usuarioAtual || "" };
+  Object.keys((cotEdit && cotEdit.dists) || {}).forEach(nome => {
+    const d = cotEdit.dists[nome] || {};
+    const precos = d.precos || {};
+    if (Object.keys(precos).length){
+      payload.dists[nome] = { precos: precos, data: data, por: usuarioAtual || "" };
+    }
+  });
+  if (st){ st.textContent = "Salvando…"; st.className = "cot-status"; }
+  db.collection("cotacoes").doc(data).set(payload).then(()=>{
+    cotDirty = false;
+    if (st){ st.textContent = "✓ Salvo"; st.className = "cot-status ok"; }
+    if (data === hojeISO()){
+      const espelho = { dists:{} };
+      Object.keys(payload.dists).forEach(n => { espelho.dists[n] = payload.dists[n]; });
+      cotacoesDia = espelho;
+      docCotacoes.set(espelho).catch(()=>{});
+    }
+    renderCotacoes();
+  }).catch(()=>{ if (st){ st.textContent = "Erro ao salvar. Tente de novo."; st.className = "cot-status pend"; } });
 }
 
 /* ================== Notificações (avisos das agendas) ================== */
