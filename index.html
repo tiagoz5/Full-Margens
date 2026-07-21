@@ -996,6 +996,7 @@
           <input type="date" id="cotData" onchange="carregarCotDia()">
         </label>
         <button class="btn-verde" id="btnSalvarCot" onclick="salvarCotacoes()">💾 Salvar cotações</button>
+        <button class="btn-claro" id="btnVoltarCot" onclick="voltarCotacoes()" title="Descartar o que você digitou e mostrar de novo o último valor salvo">↩️ Voltar</button>
         <span class="cot-status" id="cotStatus"></span>
       </div>
       <div id="conteudoCotacoes"></div>
@@ -2449,6 +2450,11 @@ function alternarCotacoes(){
     carregarCotDia();
   }
 }
+function voltarCotacoes(){
+  carregarCotDia();
+  const st = document.getElementById("cotStatus");
+  if (st){ st.textContent = "Voltou ao último valor salvo"; st.className = "cot-status"; }
+}
 function carregarCotDia(){
   const dt = document.getElementById("cotData");
   cotDataSel = (dt && dt.value) || hojeISO();
@@ -2532,7 +2538,7 @@ function salvarCotacoes(){
   const payload = { dists:{}, data: data, por: usuarioAtual || "" };
   Object.keys((cotEdit && cotEdit.dists) || {}).forEach(nome => {
     const d = cotEdit.dists[nome] || {};
-    const precos = d.precos || {};
+    const precos = Object.assign({}, d.precos || {});   // cópia própria (não compartilhar referência com o buffer)
     if (Object.keys(precos).length){
       payload.dists[nome] = { precos: precos, data: data, por: usuarioAtual || "" };
     }
@@ -2542,8 +2548,7 @@ function salvarCotacoes(){
     cotDirty = false;
     if (st){ st.textContent = "✓ Salvo"; st.className = "cot-status ok"; }
     if (data === hojeISO()){
-      const espelho = { dists:{} };
-      Object.keys(payload.dists).forEach(n => { espelho.dists[n] = payload.dists[n]; });
+      const espelho = JSON.parse(JSON.stringify({ dists: payload.dists }));
       cotacoesDia = espelho;
       docCotacoes.set(espelho).catch(()=>{});
     }
