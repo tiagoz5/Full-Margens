@@ -112,7 +112,8 @@
     overflow-x:hidden;overflow-y:auto;transition:width .18s ease;scrollbar-width:thin}
   .menu-lateral:hover{width:238px;box-shadow:4px 0 18px rgba(0,0,0,.25)}
   .menu-lateral button{display:flex;align-items:center;gap:12px;justify-content:flex-start;white-space:nowrap;
-    width:100%;border:none;background:transparent;text-align:left;flex:0 0 auto;cursor:pointer}
+    width:100%;border:none;background:transparent;text-align:left;flex:0 0 auto;cursor:pointer;position:relative}
+  .menu-badge{position:absolute;left:24px;top:3px;background:var(--vermelho);color:#fff;font-size:.62rem;font-weight:700;border-radius:10px;padding:1px 5px;line-height:1.3}
   .menu-lateral button:hover{background:var(--superficie-2)}
   .menu-lateral button.ativo{box-shadow:0 0 0 2px var(--verde) inset;color:var(--verde)}
   .menu-lateral .mi{flex:0 0 24px;text-align:center;font-size:1.05rem}
@@ -577,6 +578,17 @@
   .pet-l span{color:var(--cinza)}
   .pet-l b{color:var(--txt);white-space:nowrap}
   .pet-info{font-size:.72rem;color:var(--cinza);margin-top:10px}
+  /* Notificações (avisos das agendas) */
+  .avi-lista{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .avi-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--borda);border-radius:10px;padding:10px 12px;background:var(--superficie-2)}
+  .avi-data{font-size:.72rem;font-weight:700;border-radius:20px;padding:3px 10px;white-space:nowrap;background:var(--superficie);border:1px solid var(--borda);color:var(--cinza)}
+  .avi-item.vencido{border-color:var(--vermelho)}
+  .avi-item.vencido .avi-data{background:var(--erro-bg);color:var(--vermelho);border-color:transparent}
+  .avi-item.hoje{border-color:var(--vermelho)}
+  .avi-item.hoje .avi-data{background:var(--vermelho);color:#fff;border-color:transparent}
+  .avi-item.perto .avi-data{background:var(--verde-claro);color:var(--verde);border-color:transparent}
+  .avi-tit{font-size:.9rem;color:var(--txt);flex:1 1 auto}
+  .avi-origem{font-size:.7rem;font-weight:600;color:var(--cinza);border:1px dashed var(--borda);border-radius:20px;padding:2px 8px}
   .comp-zerar.zerar-confirma{color:var(--vermelho);border-color:var(--vermelho);font-weight:600}
   .comp-vol-item input,.comp-preco-row input,.comp-dist-nome{
     border:1px solid var(--borda);border-radius:6px;padding:8px;font-size:.9rem;
@@ -736,6 +748,7 @@
     <button class="btn-claro" id="btnSimular" onclick="alternarSimular()"><span class="mi">💰</span><span class="mt">Simular Margens</span></button>
     <button class="btn-claro" id="btnComparativo" onclick="alternarComparativo()"><span class="mi">🚛</span><span class="mt">Comparativo de Preços</span></button>
     <button class="btn-claro" id="btnCotacoes" onclick="alternarCotacoes()"><span class="mi">💲</span><span class="mt">Cotações do Dia</span></button>
+    <button class="btn-claro" id="btnAvisos" onclick="alternarAvisos()"><span class="mi">🔔</span><span class="mt">Notificações</span><span class="menu-badge" id="badgeAvisos" style="display:none"></span></button>
     <button class="btn-claro" onclick="exportarPDF()"><span class="mi">📄</span><span class="mt">Exportar PDF</span></button>
     <button class="btn-claro" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
     <button class="btn-claro" id="btnConfig" onclick="alternarConfig()"><span class="mi">⚙</span><span class="mt">Configurações</span></button>
@@ -815,6 +828,14 @@
       <h2>Cotações do Dia</h2>
       <p class="nota-dash">Preço do litro cotado em cada distribuidora para o dia de hoje. Os valores ficam salvos na nuvem e aparecem para toda a equipe, em qualquer aparelho.</p>
       <div id="conteudoCotacoes"></div>
+    </div>
+  </div>
+
+  <div class="config" id="painelAvisos">
+    <div class="grupo">
+      <h2>Notificações</h2>
+      <p class="nota-dash">Avisos importantes vindos das agendas Google dos postos (vencimento de certificados, licenças, prazos...). Sincronizam automaticamente todo dia; para atualizar agora, peça ao Claude: "sincroniza as notificações".</p>
+      <div id="conteudoAvisos"></div>
     </div>
   </div>
 
@@ -960,6 +981,7 @@ const colHistorico = db.collection("historico");
 const colPerfis = db.collection("perfis");   // nome amigável por usuário (id do doc = e-mail)
 const docCotacoes = db.collection("config").doc("cotacoesDia");   // cotações do dia por distribuidora
 const docPetros = db.collection("config").doc("petrosResumo");    // resumo do Resultado no período (sistema Petros)
+const docAvisos = db.collection("config").doc("avisos");          // notificações vindas das agendas Google dos postos
 let usuarioAtual = "";                 // e-mail de quem está logado (para o histórico)
 let nomeUsuario = "";                  // nome amigável do usuário logado
 let perfis = {};                       // mapa e-mail -> nome, sincronizado da nuvem
@@ -975,6 +997,8 @@ let escutaCotacoes = null;
 let cotacoesDia = { dists: {} };   // cotações do dia sincronizadas da nuvem
 let escutaPetros = null;
 let petrosResumo = null;           // resumo do Petros sincronizado da nuvem
+let escutaAvisos = null;
+let avisosDia = null;              // notificações das agendas sincronizadas da nuvem
 
 /* E-mails com acesso ao painel de usuários */
 const ADMINS = ["tiago.z5@gmail.com"];
@@ -1169,6 +1193,7 @@ function aoMudarLogin(usuario){
     if (escutaPerfis){ escutaPerfis(); escutaPerfis = null; }
     if (escutaCotacoes){ escutaCotacoes(); escutaCotacoes = null; }
     if (escutaPetros){ escutaPetros(); escutaPetros = null; }
+    if (escutaAvisos){ escutaAvisos(); escutaAvisos = null; }
     nuvemPronta = false;
   }
 }
@@ -1508,6 +1533,14 @@ function iniciarSync(){
     if (pd && pd.classList.contains("aberto")) renderDashboard();
   }, ()=>{});
 
+  // Notificações (avisos das agendas Google dos postos)
+  escutaAvisos = docAvisos.onSnapshot(snap => {
+    avisosDia = snap.exists ? (snap.data() || null) : null;
+    atualizarBadgeAvisos();
+    const pa = document.getElementById("painelAvisos");
+    if (pa && pa.classList.contains("aberto")) renderAvisos();
+  }, ()=>{});
+
   // Lançamentos
   escutaLancamentos = colLancamentos.onSnapshot(async snap => {
     const daNuvem = [];
@@ -1682,7 +1715,7 @@ function excluir(i){
 
 /* ================== Salvar / Carregar / Exportar ================== */
 // Painéis que ocupam a página; só um fica aberto por vez
-const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelCotacoes","painelConfig","painelAdmin"];
+const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelCotacoes","painelAvisos","painelConfig","painelAdmin"];
 function fecharTodosPaineis(exceto){
   PAINEIS.forEach(id => {
     const el = document.getElementById(id);
@@ -1705,6 +1738,8 @@ function fecharTodosPaineis(exceto){
   if (bcomp) bcomp.classList.toggle("ativo", document.getElementById("painelComparativo").classList.contains("aberto"));
   const bcot = document.getElementById("btnCotacoes");
   if (bcot) bcot.classList.toggle("ativo", document.getElementById("painelCotacoes").classList.contains("aberto"));
+  const bav = document.getElementById("btnAvisos");
+  if (bav) bav.classList.toggle("ativo", document.getElementById("painelAvisos").classList.contains("aberto"));
 }
 
 /* ===== Menu lateral: abrir/fechar no celular ===== */
@@ -1935,6 +1970,65 @@ function setPrecoCotacao(dist, comb, val){
   d.por = usuarioAtual || "";
   docCotacoes.set(cotacoesDia).catch(()=>{});
   renderCotacoes();
+}
+
+/* ================== Notificações (avisos das agendas) ================== */
+function alternarAvisos(){
+  const aberto = abrirPainelExclusivo("painelAvisos");
+  const b = document.getElementById("btnAvisos");
+  if (b) b.classList.toggle("ativo", aberto);
+  if (aberto) renderAvisos();
+}
+function diasAte(iso){
+  const d1 = new Date(hojeISO()+"T00:00:00");
+  const d2 = new Date(String(iso)+"T00:00:00");
+  const dif = Math.round((d2 - d1) / 86400000);
+  return isFinite(dif) ? dif : 9999;
+}
+function avisosVisiveis(){
+  if (!avisosDia || !Array.isArray(avisosDia.eventos)) return [];
+  // mostra vencidos de até 14 dias atrás + tudo que vem pela frente
+  return avisosDia.eventos
+    .filter(e => e && e.data && e.titulo && diasAte(e.data) >= -14)
+    .slice()
+    .sort((a,b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
+}
+function atualizarBadgeAvisos(){
+  const b = document.getElementById("badgeAvisos");
+  if (!b) return;
+  const n = avisosVisiveis().filter(e => diasAte(e.data) <= 7).length;  // vencidos + próximos 7 dias
+  b.textContent = n;
+  b.style.display = n ? "" : "none";
+}
+function renderAvisos(){
+  const cont = document.getElementById("conteudoAvisos");
+  if (!cont) return;
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const evs = avisosVisiveis();
+  let html = '';
+  if (avisosDia && avisosDia.atualizadoEm){
+    html += '<p class="cot-quem">🔄 Atualizado em ' + fmtDataHora(new Date(avisosDia.atualizadoEm)) + '</p>';
+  }
+  if (!evs.length){
+    cont.innerHTML = html + '<p class="nota-dash">Nenhum aviso por enquanto. Os eventos registrados nas agendas dos postos aparecem aqui após a sincronização.</p>';
+    return;
+  }
+  html += '<div class="avi-lista">';
+  evs.forEach(e => {
+    const dd = diasAte(e.data);
+    const ddmm = fmtDataCurta(e.data).slice(0,5);
+    let cls = '', rot = fmtDataCurta(e.data);
+    if (dd < 0){ cls = 'vencido'; rot = '⚠️ VENCIDO ' + ddmm; }
+    else if (dd === 0){ cls = 'hoje'; rot = 'HOJE'; }
+    else if (dd === 1){ cls = 'perto'; rot = 'AMANHÃ'; }
+    else if (dd <= 7){ cls = 'perto'; rot = ddmm + ' • em ' + dd + ' dias'; }
+    html += '<div class="avi-item ' + cls + '"><span class="avi-data">' + rot + '</span>' +
+      '<span class="avi-tit">' + esc(e.titulo) + '</span>' +
+      (e.origem ? '<span class="avi-origem">' + esc(e.origem) + '</span>' : '') +
+      '</div>';
+  });
+  html += '</div>';
+  cont.innerHTML = html;
 }
 
 /* ================== Comparativo de Preços ================== */
@@ -2878,6 +2972,7 @@ function painelVisivelInfo(){
     ["painelSimular",   "Simular Margens", "simulacao"],
     ["painelComparativo", "Comparativo de Preços", "comparativo"],
     ["painelCotacoes",  "Cotações do Dia", "cotacoes"],
+    ["painelAvisos",    "Notificações", "notificacoes"],
     ["painelConfig",    "Configurações", "configuracoes"],
     ["painelAdmin",     "Usuários",    "usuarios"],
   ];
