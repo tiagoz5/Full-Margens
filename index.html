@@ -611,6 +611,8 @@
   .btn-claro.confirmar{background:var(--vermelho);color:#fff;border-color:transparent}
   .msg-admin.ok{color:var(--txt)}   /* legível também nos temas escuros */
   .mot-form input{flex:1 1 170px}
+  .usr-item input[readonly]{background:transparent;border-color:transparent;color:var(--txt);opacity:.9;cursor:default;box-shadow:none}
+  .usr-item.editando{box-shadow:0 0 0 2px var(--verde) inset;background:var(--verde-claro)}
   .pux-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:10px;max-width:920px}
   .pux-form label{display:flex;flex-direction:column;gap:5px;font-size:.74rem;font-weight:600;color:var(--cinza)}
   .pux-form input,.pux-form select{border:1px solid var(--borda);border-radius:6px;padding:9px;font-size:.9rem;background:var(--superficie);color:var(--txt)}
@@ -2743,10 +2745,27 @@ function atualizarMotorista(id, campo, el){
   salvarMotoristas();
 }
 
+let editandoMotorista = null;
+function editarMotorista(id){ editandoMotorista = id; confirmarMotorista = null; renderMotoristas(); }
+function cancelarEdicaoMotorista(){ editandoMotorista = null; confirmarMotorista = null; renderMotoristas(); }
+function confirmarEdicaoMotorista(id){
+  const m = motoristas.find(x=>x.id===id);
+  if (!m) return;
+  const nome = document.getElementById("motE_nome").value.trim();
+  if (!nome){ avisoAdmin("msgMotorista","O nome não pode ficar vazio.","erro"); return; }
+  m.nome = nome;
+  m.placaCaminhao = normPlaca(document.getElementById("motE_placaCaminhao").value);
+  m.placaTanque = normPlaca(document.getElementById("motE_placaTanque").value);
+  m.capacidade = lerInteiro(document.getElementById("motE_capacidade").value);
+  salvarMotoristas();
+  editandoMotorista = null; confirmarMotorista = null;
+  avisoAdmin("msgMotorista","Alterações salvas.","ok");
+  renderMotoristas();
+}
 let confirmarMotorista = null, timerMotorista = null;
 function removerMotorista(id){
   if (confirmarMotorista === id){
-    clearTimeout(timerMotorista); confirmarMotorista = null;
+    clearTimeout(timerMotorista); confirmarMotorista = null; editandoMotorista = null;
     motoristas = motoristas.filter(x=>x.id!==id);
     salvarMotoristas();
     renderMotoristas();
@@ -2765,14 +2784,25 @@ function renderMotoristas(){
     return;
   }
   cont.innerHTML = motoristas.map(m => {
-    const conf = confirmarMotorista === m.id;
     const cap = m.capacidade ? Number(m.capacidade).toLocaleString("pt-BR") : "";
+    if (editandoMotorista === m.id){
+      const conf = confirmarMotorista === m.id;
+      return '<div class="usr-item editando">' +
+        '<input id="motE_nome" maxlength="40" value="'+escAttr(m.nome)+'" placeholder="Nome">' +
+        '<input id="motE_placaCaminhao" maxlength="10" value="'+escAttr(m.placaCaminhao||"")+'" placeholder="Placa - Caminhão">' +
+        '<input id="motE_placaTanque" maxlength="10" value="'+escAttr(m.placaTanque||"")+'" placeholder="Placa tanque">' +
+        '<input id="motE_capacidade" inputmode="numeric" oninput="mascaraInteiro(this)" value="'+cap+'" placeholder="Litros">' +
+        '<button class="btn-verde" onclick="confirmarEdicaoMotorista(\''+m.id+'\')">✓ Confirmar alterações</button>' +
+        '<button class="btn-claro" onclick="cancelarEdicaoMotorista()">Cancelar</button>' +
+        '<button class="btn-claro'+(conf?' confirmar':'')+'" onclick="removerMotorista(\''+m.id+'\')">'+(conf?'✓ confirmar?':'🗑 Remover')+'</button>' +
+        '</div>';
+    }
     return '<div class="usr-item">' +
-      '<input value="'+escAttr(m.nome)+'" onchange="atualizarMotorista(\''+m.id+'\',\'nome\',this)" placeholder="Nome">' +
-      '<input value="'+escAttr(m.placaCaminhao||"")+'" onchange="atualizarMotorista(\''+m.id+'\',\'placaCaminhao\',this)" placeholder="Placa - Caminhão">' +
-      '<input value="'+escAttr(m.placaTanque||"")+'" onchange="atualizarMotorista(\''+m.id+'\',\'placaTanque\',this)" placeholder="Placa tanque">' +
-      '<input value="'+cap+'" inputmode="numeric" oninput="mascaraInteiro(this)" onchange="atualizarMotorista(\''+m.id+'\',\'capacidade\',this)" placeholder="Litros">' +
-      '<button class="btn-claro'+(conf?' confirmar':'')+'" onclick="removerMotorista(\''+m.id+'\')">'+(conf?'✓ confirmar?':'Remover')+'</button>' +
+      '<input value="'+escAttr(m.nome)+'" readonly>' +
+      '<input value="'+escAttr(m.placaCaminhao||"")+'" readonly>' +
+      '<input value="'+escAttr(m.placaTanque||"")+'" readonly>' +
+      '<input value="'+cap+'" readonly>' +
+      '<button class="btn-claro" onclick="editarMotorista(\''+m.id+'\')">✏️ Editar</button>' +
       '</div>';
   }).join("");
 }
