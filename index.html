@@ -106,6 +106,23 @@
   header .logo-app{height:36px;width:auto;display:block}
   #statusSalvo{font-size:.68rem;font-weight:400;font-family:"Poppins",sans-serif;text-transform:none;letter-spacing:0;color:#FFC9A3;margin-left:10px;opacity:0;transition:opacity .4s}
   header .acoes{display:flex;gap:8px;flex-wrap:wrap}
+  /* ===== Menu lateral (estilo painel Petros) ===== */
+  .menu-lateral{position:fixed;left:0;top:0;bottom:0;width:62px;z-index:80;background:var(--superficie);
+    border-right:1px solid var(--borda);display:flex;flex-direction:column;gap:4px;padding:14px 8px;
+    overflow-x:hidden;overflow-y:auto;transition:width .18s ease;scrollbar-width:thin}
+  .menu-lateral:hover{width:238px;box-shadow:4px 0 18px rgba(0,0,0,.25)}
+  .menu-lateral button{display:flex;align-items:center;gap:12px;justify-content:flex-start;white-space:nowrap;
+    width:100%;border:none;background:transparent;text-align:left;flex:0 0 auto;cursor:pointer}
+  .menu-lateral button:hover{background:var(--superficie-2)}
+  .menu-lateral button.ativo{box-shadow:0 0 0 2px var(--verde) inset;color:var(--verde)}
+  .menu-lateral .mi{flex:0 0 24px;text-align:center;font-size:1.05rem}
+  .menu-lateral .mt{opacity:0;transition:opacity .12s}
+  .menu-lateral:hover .mt{opacity:1}
+  .menu-lateral .menu-sair{margin-top:auto;color:var(--vermelho)}
+  .menu-fundo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:75}
+  .menu-hamb{display:none;background:transparent;border:1px solid var(--borda);color:var(--txt);
+    border-radius:8px;font-size:1.25rem;line-height:1;padding:8px 12px;cursor:pointer;flex:0 0 auto}
+  @media (min-width:641px){ body{padding-left:82px} }
 
   button{
     border:none;border-radius:6px;padding:8px 14px;
@@ -600,6 +617,11 @@
   /* ================= CELULAR — retrato e telas estreitas ================= */
   @media (max-width: 640px){
     body{ padding:12px 8px 40px; }
+    /* celular: menu lateral escondido; abre pelo botão ☰ do topo */
+    .menu-lateral{ width:250px; transform:translateX(-105%); transition:transform .2s ease; padding-top:18px; }
+    .menu-lateral.aberto{ transform:none; box-shadow:4px 0 20px rgba(0,0,0,.45); }
+    .menu-lateral .mt{ opacity:1; }
+    .menu-hamb{ display:block; }
     header{ padding:12px 14px; gap:10px; }
     header h1{ font-size:.98rem; gap:10px; }
     header .logo-app{ height:30px; }
@@ -658,7 +680,7 @@
 
   @media print{
     body{background:#fff;padding:0}
-    header .acoes,.rodape,td .btn-excluir,thead th:last-child,tbody td:last-child{display:none}
+    .menu-lateral,.menu-hamb,.menu-fundo,header .acoes,.rodape,td .btn-excluir,thead th:last-child,tbody td:last-child{display:none}
     .filtros{grid-template-columns:repeat(6,1fr)}
     td input,td select{border:none;background:none}
   }
@@ -705,6 +727,21 @@
 
 <div class="container" id="appPrincipal" style="display:none">
 
+  <div class="menu-fundo" id="menuFundo" onclick="fecharMenuLateral()"></div>
+  <aside class="menu-lateral" id="menuLateral" aria-label="Menu principal">
+    <button class="btn-claro" id="btnDash" onclick="alternarDash()"><span class="mi">📈</span><span class="mt">Dashboard</span></button>
+    <button class="btn-claro" id="btnRegistros" onclick="alternarRegistros()"><span class="mi">📋</span><span class="mt">Lançamentos</span></button>
+    <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()"><span class="mi">🕐</span><span class="mt">Histórico</span></button>
+    <button class="btn-claro" id="btnSimular" onclick="alternarSimular()"><span class="mi">💰</span><span class="mt">Simular Margens</span></button>
+    <button class="btn-claro" id="btnComparativo" onclick="alternarComparativo()"><span class="mi">🚛</span><span class="mt">Comparativo de Preços</span></button>
+    <button class="btn-claro" id="btnCotacoes" onclick="alternarCotacoes()"><span class="mi">💲</span><span class="mt">Cotações do Dia</span></button>
+    <button class="btn-claro" onclick="exportarPDF()"><span class="mi">📄</span><span class="mt">Exportar PDF</span></button>
+    <button class="btn-claro" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
+    <button class="btn-claro" id="btnConfig" onclick="alternarConfig()"><span class="mi">⚙</span><span class="mt">Configurações</span></button>
+    <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()"><span class="mi">👥</span><span class="mt">Usuários</span></button>
+    <button class="btn-dourado menu-sair" onclick="sair()"><span class="mi">🚪</span><span class="mt">Sair</span></button>
+  </aside>
+
   <header>
     <div class="header-topo">
       <h1>
@@ -719,19 +756,7 @@
           <button type="button" class="tema-op" data-tema="escuro" onclick="aplicarTema('escuro')" title="Tema escuro" aria-label="Tema escuro">🌙</button>
         </div>
       </div>
-    </div>
-    <div class="acoes">
-      <button class="btn-claro" id="btnDash" onclick="alternarDash()">📈 Dashboard</button>
-      <button class="btn-claro" id="btnRegistros" onclick="alternarRegistros()">📋 Lançamentos</button>
-      <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()">🕐 Histórico</button>
-      <button class="btn-claro" id="btnSimular" onclick="alternarSimular()">💰 Simular Margens</button>
-      <button class="btn-claro" id="btnComparativo" onclick="alternarComparativo()">🚛 Comparativo de Preços</button>
-      <button class="btn-claro" id="btnCotacoes" onclick="alternarCotacoes()">💲 Cotações do Dia</button>
-      <button class="btn-claro" onclick="exportarPDF()">📄 Exportar PDF</button>
-      <button class="btn-claro" onclick="imprimir()">🖨️ Imprimir</button>
-      <button class="btn-claro" id="btnConfig" onclick="alternarConfig()">⚙ Configurações</button>
-      <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()">👥 Usuários</button>
-      <button class="btn-dourado" onclick="sair()">Sair</button>
+      <button class="menu-hamb" id="btnMenuHamb" onclick="alternarMenuLateral()" title="Abrir menu" aria-label="Abrir menu">☰</button>
     </div>
   </header>
 
@@ -1680,6 +1705,27 @@ function fecharTodosPaineis(exceto){
   const bcot = document.getElementById("btnCotacoes");
   if (bcot) bcot.classList.toggle("ativo", document.getElementById("painelCotacoes").classList.contains("aberto"));
 }
+
+/* ===== Menu lateral: abrir/fechar no celular ===== */
+function alternarMenuLateral(){
+  const m = document.getElementById("menuLateral");
+  const f = document.getElementById("menuFundo");
+  if (!m) return;
+  const abre = !m.classList.contains("aberto");
+  m.classList.toggle("aberto", abre);
+  if (f) f.style.display = abre ? "block" : "none";
+}
+function fecharMenuLateral(){
+  const m = document.getElementById("menuLateral");
+  const f = document.getElementById("menuFundo");
+  if (m) m.classList.remove("aberto");
+  if (f) f.style.display = "none";
+}
+// Tocar em qualquer item do menu fecha o painel (no computador não tem efeito)
+(function(){
+  const m = document.getElementById("menuLateral");
+  if (m) m.addEventListener("click", e => { if (e.target.closest("button")) fecharMenuLateral(); });
+})();
 
 // Abre um painel fechando os demais; se já estava aberto, apenas fecha (liga/desliga)
 function abrirPainelExclusivo(id){
