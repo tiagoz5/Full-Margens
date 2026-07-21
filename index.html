@@ -266,6 +266,11 @@
   }
   .add-linha input:focus{outline:2px solid var(--verde);outline-offset:-1px}
   .frete-padrao{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .alerta-linha{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .alerta-check{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem;color:var(--txt)}
+  .alerta-check input{width:17px;height:17px;accent-color:var(--verde);cursor:pointer}
+  .alerta-mais,.alerta-un{font-size:.85rem;color:var(--cinza)}
+  .alerta-num{width:64px;text-align:center;border:1px solid var(--borda);border-radius:6px;padding:7px;font-size:.9rem;background:var(--superficie);color:var(--txt)}
   .frete-padrao input{
     width:110px;padding:8px 10px;border:1px solid var(--borda);
     border-radius:6px;font-size:.9rem;text-align:right;font-weight:600;
@@ -1008,6 +1013,23 @@
         <span class="nota">Valor usado automaticamente em novos registros. O frete de cada linha continua editável na tabela.</span>
       </div>
     </div>
+    <div class="grupo">
+      <h2>Alertas de cotação (Vibra)</h2>
+      <p class="nota-dash">Receba uma notificação no celular quando o preço de um produto na Vibra mudar bastante de um dia para o outro. Os avisos chegam pelo servidor toda manhã, mesmo com o computador desligado — os aparelhos precisam ter os avisos ativados no menu Notificações.</p>
+      <div class="alerta-linha">
+        <label class="alerta-check"><input type="checkbox" id="alertaSubiuAtivo" onchange="salvarAlertas()"> <span>Avisar quando <b>subir</b></span></label>
+        <span class="alerta-mais">mais de</span>
+        <input type="text" inputmode="numeric" id="alertaSubiuCent" class="alerta-num" onchange="salvarAlertas()">
+        <span class="alerta-un">centavos/litro</span>
+      </div>
+      <div class="alerta-linha">
+        <label class="alerta-check"><input type="checkbox" id="alertaCaiuAtivo" onchange="salvarAlertas()"> <span>Avisar quando <b>cair</b> (oportunidade de compra)</span></label>
+        <span class="alerta-mais">mais de</span>
+        <input type="text" inputmode="numeric" id="alertaCaiuCent" class="alerta-num" onchange="salvarAlertas()">
+        <span class="alerta-un">centavos/litro</span>
+      </div>
+      <div class="msg-admin" id="msgAlertas"></div>
+    </div>
   </div>
 
   <div id="painelRegistros">
@@ -1059,6 +1081,7 @@ const colPerfis = db.collection("perfis");   // nome amigável por usuário (id 
 const docCotacoes = db.collection("config").doc("cotacoesDia");   // cotações do dia por distribuidora
 const docPetros = db.collection("config").doc("petrosResumo");    // resumo do Resultado no período (sistema Petros)
 const docAvisos = db.collection("config").doc("avisos");          // notificações vindas das agendas Google dos postos
+const docAlertas = db.collection("config").doc("alertas");        // limites dos alertas de cotação (usados pelo servidor)
 let usuarioAtual = "";                 // e-mail de quem está logado (para o histórico)
 let nomeUsuario = "";                  // nome amigável do usuário logado
 let perfis = {};                       // mapa e-mail -> nome, sincronizado da nuvem
@@ -1076,6 +1099,9 @@ let cotacoesDia = { dists: {} };   // cotações do dia sincronizadas da nuvem
 let escutaPetros = null;
 let petrosResumo = null;           // resumo do Petros sincronizado da nuvem
 let escutaAvisos = null;
+let escutaAlertas = null;
+// Limites dos alertas de cotação (o servidor lê isto para decidir quando notificar)
+let alertasConfig = { cotacaoSubiu: { ativo: true, centavos: 3 }, cotacaoCaiu: { ativo: true, centavos: 3 } };
 let avisosDia = null;              // notificações das agendas sincronizadas da nuvem
 
 /* ================== Avisos push (Firebase Cloud Messaging) ================== */
@@ -1382,6 +1408,7 @@ function aoMudarLogin(usuario){
     if (escutaCotacoes){ escutaCotacoes(); escutaCotacoes = null; }
     if (escutaPetros){ escutaPetros(); escutaPetros = null; }
     if (escutaAvisos){ escutaAvisos(); escutaAvisos = null; }
+    if (escutaAlertas){ escutaAlertas(); escutaAlertas = null; }
     nuvemPronta = false;
   }
 }
@@ -1535,6 +1562,32 @@ function renderConfig(){
   if (fp) fp.value = fretePadrao.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4});
   const cn = document.getElementById("meuNome");
   if (cn && document.activeElement !== cn) cn.value = nomeUsuario || "";
+  // Alertas de cotação
+  const cfg = alertasConfig || {};
+  const sub = cfg.cotacaoSubiu || {}, cai = cfg.cotacaoCaiu || {};
+  const sa = document.getElementById("alertaSubiuAtivo"); if (sa) sa.checked = sub.ativo !== false;
+  const ca = document.getElementById("alertaCaiuAtivo");  if (ca) ca.checked = cai.ativo !== false;
+  const sc = document.getElementById("alertaSubiuCent");
+  if (sc && document.activeElement !== sc) sc.value = isFinite(sub.centavos) ? sub.centavos : 3;
+  const cc = document.getElementById("alertaCaiuCent");
+  if (cc && document.activeElement !== cc) cc.value = isFinite(cai.centavos) ? cai.centavos : 3;
+}
+
+function salvarAlertas(){
+  const inteiro = (id, padrao) => {
+    const el = document.getElementById(id);
+    let n = parseInt(String(el ? el.value : "").replace(/\D/g,""), 10);
+    if (!isFinite(n) || n <= 0) n = padrao;
+    return n;
+  };
+  alertasConfig = {
+    cotacaoSubiu: { ativo: !!(document.getElementById("alertaSubiuAtivo")||{}).checked, centavos: inteiro("alertaSubiuCent", 3) },
+    cotacaoCaiu:  { ativo: !!(document.getElementById("alertaCaiuAtivo")||{}).checked,  centavos: inteiro("alertaCaiuCent", 3) }
+  };
+  docAlertas.set(alertasConfig, { merge: true })
+    .then(()=> avisoAdmin("msgAlertas", "Alertas salvos.", "ok"))
+    .catch(e => avisoAdmin("msgAlertas", "Não foi possível salvar agora. Verifique a conexão.", "erro"));
+  renderConfig();
 }
 
 let timerRemocao = null;
@@ -1774,6 +1827,17 @@ function iniciarSync(){
     petrosResumo = snap.exists ? (snap.data() || null) : null;
     const pd = document.getElementById("painelDash");
     if (pd && pd.classList.contains("aberto")) renderDashboard();
+  }, ()=>{});
+
+  // Limites dos alertas de cotação (compartilhados; usados pelo servidor e editados nas Configurações)
+  escutaAlertas = docAlertas.onSnapshot(snap => {
+    if (snap.exists && snap.data()){
+      const d = snap.data();
+      if (d.cotacaoSubiu) alertasConfig.cotacaoSubiu = Object.assign({}, alertasConfig.cotacaoSubiu, d.cotacaoSubiu);
+      if (d.cotacaoCaiu)  alertasConfig.cotacaoCaiu  = Object.assign({}, alertasConfig.cotacaoCaiu,  d.cotacaoCaiu);
+    }
+    const pc = document.getElementById("painelConfig");
+    if (pc && pc.classList.contains("aberto")) renderConfig();
   }, ()=>{});
 
   // Notificações (avisos das agendas Google dos postos)
