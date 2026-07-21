@@ -594,8 +594,12 @@
   .cal-mes{font-family:"Oswald","Poppins",sans-serif;font-size:1.05rem;font-weight:600;color:var(--txt);min-width:160px;text-align:center}
   .cal-nav{background:var(--superficie-2);border:1px solid var(--borda);color:var(--txt);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:.9rem}
   .cal-nav:hover{border-color:var(--verde)}
-  .cal-leg{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px;font-size:.72rem;color:var(--cinza)}
-  .cal-leg span{display:flex;align-items:center;gap:5px}
+  .cal-leg{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+  .cal-filtro{display:flex;align-items:center;gap:6px;background:var(--superficie-2);border:1px solid var(--borda);
+    border-radius:20px;padding:5px 12px;font-size:.74rem;font-weight:600;color:var(--txt);cursor:pointer}
+  .cal-filtro:hover{border-color:var(--verde)}
+  .cal-filtro.off{opacity:.4}
+  .cal-filtro.off .cal-dot{filter:grayscale(1)}
   .cal-grade{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px}
   .cal-sem{font-size:.66rem;font-weight:700;color:var(--cinza);text-align:center;padding:4px 0;text-transform:uppercase}
   .cal-dia{border:1px solid var(--borda);border-radius:8px;background:var(--superficie-2);min-height:52px;padding:5px 2px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
@@ -2175,11 +2179,18 @@ function origemClasseCal(o){
   if (o.indexOf('transport') >= 0) return 'cx';
   return 'cg';
 }
+// Filtro por agenda: todos ligados por padrão; clique na etiqueta liga/desliga
+let calFiltro = { ct:true, cc:true, cd:true, cx:true, cg:true };
+function alternarFiltroCal(cls){
+  calFiltro[cls] = !calFiltro[cls];
+  renderCalendario();
+}
 function renderCalendario(){
   const cont = document.getElementById("conteudoCalendario");
   if (!cont) return;
   const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  const eventos = (avisosDia && Array.isArray(avisosDia.eventos)) ? avisosDia.eventos.filter(e => e && e.data && e.titulo) : [];
+  const todosEventos = (avisosDia && Array.isArray(avisosDia.eventos)) ? avisosDia.eventos.filter(e => e && e.data && e.titulo) : [];
+  const eventos = todosEventos.filter(e => calFiltro[origemClasseCal(e.origem)]);
   const porDia = {};
   eventos.forEach(e => { (porDia[e.data] = porDia[e.data] || []).push(e); });
 
@@ -2190,13 +2201,16 @@ function renderCalendario(){
     '<button class="cal-nav" onclick="mudarMesCal(1)" aria-label="Próximo mês">▶</button>' +
     '<button class="cal-nav" onclick="hojeCal()">Hoje</button></div>';
 
-  // legenda das cores
-  html += '<div class="cal-leg">' +
-    '<span><i class="cal-dot ct"></i>Teresina</span>' +
-    '<span><i class="cal-dot cc"></i>Caxias</span>' +
-    '<span><i class="cal-dot cd"></i>Dutra</span>' +
-    '<span><i class="cal-dot cx"></i>Transportadora</span>' +
-    '<span><i class="cal-dot cg"></i>Outros</span></div>';
+  // filtros por agenda (clicáveis; "Outros" só aparece se existir evento fora das 4 agendas)
+  const filtrosCal = [["ct","Teresina"],["cc","Caxias"],["cd","Dutra"],["cx","Transportadora"]];
+  if (todosEventos.some(e => origemClasseCal(e.origem) === 'cg')) filtrosCal.push(["cg","Outros"]);
+  html += '<div class="cal-leg">';
+  filtrosCal.forEach(f => {
+    html += '<button class="cal-filtro' + (calFiltro[f[0]] ? '' : ' off') + '" ' +
+      'title="' + (calFiltro[f[0]] ? 'Toque para esconder' : 'Toque para mostrar') + ' os eventos: ' + f[1] + '" ' +
+      'onclick="alternarFiltroCal(\'' + f[0] + '\')"><i class="cal-dot ' + f[0] + '"></i>' + f[1] + '</button>';
+  });
+  html += '</div>';
 
   // grade do mês
   const hoje = hojeISO();
