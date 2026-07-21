@@ -61,7 +61,7 @@
     --verde-claro:#421A00;
     --vermelho:#FF6B6B;
     --menu-bg:#181A1B;
-    --menu-txt:#FF7A2E;
+    --menu-txt:#D5D1CC;   /* texto do menu neutro (antes laranja) */
     --menu-borda:#393E40;
     --erro-bg:#3A1A18;
     --scroll-track:#202324;
@@ -153,7 +153,7 @@
     display:block;font-size:.72rem;font-weight:600;
     font-family:"Oswald","Poppins",sans-serif;
     text-transform:uppercase;letter-spacing:.5px;
-    color:var(--verde);margin-bottom:4px;
+    color:var(--cinza);margin-bottom:4px;
   }
   .filtro input,.filtro select{
     width:100%;padding:7px 9px;border:1px solid var(--borda);
@@ -238,7 +238,7 @@
   .config h2{
     font-family:"Oswald","Poppins",sans-serif;
     font-size:.85rem;text-transform:uppercase;letter-spacing:.8px;
-    color:var(--verde);margin-bottom:8px;
+    color:var(--txt);border-left:4px solid var(--verde);padding-left:10px;margin-bottom:8px;
   }
   .config .grupo{margin-bottom:18px}
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
@@ -544,7 +544,7 @@
   .link-console{font-size:.78rem;color:var(--verde);text-decoration:underline}
 
   /* ================= Comparativo de Preços ================= */
-  .comp-tit{font-family:"Oswald","Poppins",sans-serif;font-size:.95rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);margin-bottom:6px}
+  .comp-tit{font-family:"Oswald","Poppins",sans-serif;font-size:.95rem;text-transform:uppercase;letter-spacing:.5px;color:var(--txt);border-left:4px solid var(--verde);padding-left:10px;margin-bottom:6px}
   .comp-sec{margin-bottom:22px}
   .comp-grid-vol{display:flex;flex-wrap:wrap;gap:10px}
   .comp-vol-item{flex:1 1 150px;display:flex;flex-direction:column;gap:4px}
@@ -568,9 +568,10 @@
   .pet-sec{margin-bottom:26px}
   .pet-bloco{border:1px solid var(--borda);border-radius:12px;padding:14px;background:var(--superficie);margin-bottom:14px}
   .pet-bloco-tit{font-family:"Oswald","Poppins",sans-serif;font-size:.95rem;text-transform:uppercase;letter-spacing:.5px;color:var(--txt);margin-bottom:10px}
-  .pet-grid{display:flex;flex-wrap:wrap;gap:12px}
-  .pet-card{flex:1 1 230px;border:1px solid var(--borda);border-radius:10px;padding:12px 14px;background:var(--superficie-2)}
-  .pet-card h4{font-family:"Oswald","Poppins",sans-serif;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);margin-bottom:8px}
+  /* grade: todos os cards SEMPRE do mesmo tamanho (o último não estica mais) */
+  .pet-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+  .pet-card{border:1px solid var(--borda);border-radius:10px;padding:12px 14px;background:var(--superficie-2)}
+  .pet-card h4{font-family:"Oswald","Poppins",sans-serif;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px;color:var(--cinza);margin-bottom:8px}
   .pet-linhas{display:flex;flex-direction:column;gap:6px}
   .pet-l{display:flex;justify-content:space-between;gap:10px;font-size:.85rem}
   .pet-l span{color:var(--cinza)}
