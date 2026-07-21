@@ -884,7 +884,6 @@
     <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()"><span class="mi">🕐</span><span class="mt">Histórico</span></button>
     <button class="btn-claro" id="btnSimular" onclick="alternarSimular()"><span class="mi">💰</span><span class="mt">Simular Margens</span></button>
     <button class="btn-claro" id="btnComparativo" onclick="alternarComparativo()"><span class="mi">🚛</span><span class="mt">Comparativo de Preços</span></button>
-    <button class="btn-claro" id="btnMotoristas" onclick="alternarMotoristas()"><span class="mi">🧑‍✈️</span><span class="mt">Motoristas</span></button>
     <button class="btn-claro" id="btnPuxadas" onclick="alternarPuxadas()"><span class="mi">🧾</span><span class="mt">Puxadas</span></button>
     <button class="btn-claro" id="btnCotacoes" onclick="alternarCotacoes()"><span class="mi">💲</span><span class="mt">Cotações do Dia</span></button>
     <button class="btn-claro" id="btnAvisos" onclick="alternarAvisos()"><span class="mi">🔔</span><span class="mt">Notificações</span><span class="menu-badge" id="badgeAvisos" style="display:none"></span></button>
@@ -961,22 +960,6 @@
       <p class="nota-dash">Compare o custo total do pedido do caminhão em cada distribuidora: informe os volumes e as cotações, e o app mostra em qual compensa fechar o pedido.</p>
       <div id="conteudoComparativo"></div>
       <canvas id="compCanvas" width="1080" height="1920" style="display:none"></canvas>
-    </div>
-  </div>
-
-  <div class="config" id="painelMotoristas">
-    <div class="grupo">
-      <h2>Motoristas e caminhões</h2>
-      <p class="nota-dash">Cadastre cada motorista com a placa do caminhão, a placa do tanque e a capacidade de carga (em litros). A placa do caminhão é o que liga cada CT-e ao motorista.</p>
-      <div class="admin-form mot-form">
-        <input id="motNome" maxlength="40" placeholder="Nome do motorista (ex.: Marcone)">
-        <input id="motPlacaCaminhao" maxlength="10" placeholder="Placa - Caminhão (ex.: RSR4I66)">
-        <input id="motPlacaTanque" maxlength="10" placeholder="Placa tanque (ex.: ROH0J42)">
-        <input id="motCapacidade" inputmode="numeric" placeholder="Capacidade em litros (ex.: 37.000)" oninput="mascaraInteiro(this)">
-        <button class="btn-verde" onclick="adicionarMotorista()">Adicionar motorista</button>
-      </div>
-      <div class="msg-admin" id="msgMotorista"></div>
-      <div class="usr-lista" id="listaMotoristas"></div>
     </div>
   </div>
 
@@ -1093,6 +1076,19 @@
   </div>
 
   <div class="config" id="painelConfig">
+    <div class="grupo" id="grupoMotoristas" style="display:none">
+      <h2>Motoristas e caminhões</h2>
+      <p class="nota-dash">Cadastre cada motorista com a placa do caminhão, a placa do tanque e a capacidade de carga (em litros). A placa do caminhão é o que liga cada CT-e ao motorista.</p>
+      <div class="admin-form mot-form">
+        <input id="motNome" maxlength="40" placeholder="Nome do motorista (ex.: Marcone)">
+        <input id="motPlacaCaminhao" maxlength="10" placeholder="Placa - Caminhão (ex.: RSR4I66)">
+        <input id="motPlacaTanque" maxlength="10" placeholder="Placa tanque (ex.: ROH0J42)">
+        <input id="motCapacidade" inputmode="numeric" placeholder="Capacidade em litros (ex.: 37.000)" oninput="mascaraInteiro(this)">
+        <button class="btn-verde" onclick="adicionarMotorista()">Adicionar motorista</button>
+      </div>
+      <div class="msg-admin" id="msgMotorista"></div>
+      <div class="usr-lista" id="listaMotoristas"></div>
+    </div>
     <div class="grupo">
       <h2>Seu nome</h2>
       <div class="campo-nome">
@@ -1670,6 +1666,7 @@ function alternarConfig(){
 let confirmarRemocao = null;   // {chave, i} aguardando o segundo toque
 
 function renderConfig(){
+  renderMotoristas();
   [["posto","chipsPosto"],["distribuidora","chipsDistribuidora"]].forEach(([chave,idChips])=>{
     document.getElementById(idChips).innerHTML = listas[chave].map((v,i)=>{
       const pendente = confirmarRemocao && confirmarRemocao.chave===chave && confirmarRemocao.i===i;
@@ -1970,7 +1967,7 @@ function iniciarSync(){
     } else {
       motoristas = (snap.data() && Array.isArray(snap.data().motoristas)) ? snap.data().motoristas : [];
     }
-    const pm = document.getElementById("painelMotoristas");
+    const pm = document.getElementById("painelConfig");
     if (pm && pm.classList.contains("aberto")) renderMotoristas();
     const pp = document.getElementById("painelPuxadas");
     if (pp && pp.classList.contains("aberto")) renderPuxadas();
@@ -2170,7 +2167,7 @@ function excluir(i){
 
 /* ================== Salvar / Carregar / Exportar ================== */
 // Painéis que ocupam a página; só um fica aberto por vez
-const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelMotoristas","painelPuxadas","painelCotacoes","painelAvisos","painelCalendario","painelConfig","painelAdmin"];
+const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelPuxadas","painelCotacoes","painelAvisos","painelCalendario","painelConfig","painelAdmin"];
 function fecharTodosPaineis(exceto){
   PAINEIS.forEach(id => {
     const el = document.getElementById(id);
@@ -2191,8 +2188,6 @@ function fecharTodosPaineis(exceto){
   if (bs) bs.classList.toggle("ativo", document.getElementById("painelSimular").classList.contains("aberto"));
   const bcomp = document.getElementById("btnComparativo");
   if (bcomp) bcomp.classList.toggle("ativo", document.getElementById("painelComparativo").classList.contains("aberto"));
-  const bmot = document.getElementById("btnMotoristas");
-  if (bmot) bmot.classList.toggle("ativo", document.getElementById("painelMotoristas").classList.contains("aberto"));
   const bpux = document.getElementById("btnPuxadas");
   if (bpux) bpux.classList.toggle("ativo", document.getElementById("painelPuxadas").classList.contains("aberto"));
   const bcot = document.getElementById("btnCotacoes");
@@ -2228,7 +2223,7 @@ function fecharMenuLateral(){
 let empresa = "postos";
 const CHAVE_EMPRESA = "margens_empresa";
 const MENU_SO_POSTOS = ["btnDash","btnRegistros","btnHistorico","btnSimular"];
-const MENU_SO_TRANSP = ["btnComparativo","btnMotoristas","btnPuxadas"];
+const MENU_SO_TRANSP = ["btnComparativo","btnPuxadas"];
 
 function aplicarEmpresa(trocarPainel){
   const ehTransp = empresa === "transportadora";
@@ -2238,6 +2233,7 @@ function aplicarEmpresa(trocarPainel){
   // Mostra/esconde os menus exclusivos de cada empresa (os demais são compartilhados)
   MENU_SO_POSTOS.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = ehTransp ? "none" : ""; });
   MENU_SO_TRANSP.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = ehTransp ? "" : "none"; });
+  const gm = document.getElementById("grupoMotoristas"); if (gm) gm.style.display = ehTransp ? "" : "none";
   // Destaca a opção ativa dentro da caixa
   const box = document.getElementById("empresaBox");
   if (box) box.querySelectorAll("button").forEach(b => b.classList.toggle("ativo", (b.getAttribute("onclick")||"").indexOf("'"+empresa+"'") >= 0));
@@ -2719,13 +2715,6 @@ const MOTORISTAS_PADRAO = [
 ];
 
 /* ===================== Full Transportadora: Motoristas ===================== */
-function alternarMotoristas(){
-  const aberto = abrirPainelExclusivo("painelMotoristas");
-  const b = document.getElementById("btnMotoristas");
-  if (b) b.classList.toggle("ativo", aberto);
-  if (aberto) renderMotoristas();
-}
-
 function salvarMotoristas(){
   if (!nuvemPronta) return;
   docTransportadora.set({ motoristas }, { merge:true }).catch(()=>{});
