@@ -589,6 +589,30 @@
   .avi-item.perto .avi-data{background:var(--verde-claro);color:var(--verde);border-color:transparent}
   .avi-tit{font-size:.9rem;color:var(--txt);flex:1 1 auto}
   .avi-origem{font-size:.7rem;font-weight:600;color:var(--cinza);border:1px dashed var(--borda);border-radius:20px;padding:2px 8px}
+  /* Calendário */
+  .cal-topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .cal-mes{font-family:"Oswald","Poppins",sans-serif;font-size:1.05rem;font-weight:600;color:var(--txt);min-width:160px;text-align:center}
+  .cal-nav{background:var(--superficie-2);border:1px solid var(--borda);color:var(--txt);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:.9rem}
+  .cal-nav:hover{border-color:var(--verde)}
+  .cal-leg{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px;font-size:.72rem;color:var(--cinza)}
+  .cal-leg span{display:flex;align-items:center;gap:5px}
+  .cal-grade{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px}
+  .cal-sem{font-size:.66rem;font-weight:700;color:var(--cinza);text-align:center;padding:4px 0;text-transform:uppercase}
+  .cal-dia{border:1px solid var(--borda);border-radius:8px;background:var(--superficie-2);min-height:52px;padding:5px 2px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+  .cal-dia:hover{border-color:var(--verde)}
+  .cal-dia.hoje{box-shadow:0 0 0 2px var(--verde) inset}
+  .cal-dia.sel{background:var(--verde-claro)}
+  .cal-vazio{visibility:hidden}
+  .cal-num{font-size:.8rem;color:var(--txt);font-weight:600;line-height:1}
+  .cal-pontos{display:flex;gap:3px;align-items:center;min-height:8px;flex-wrap:wrap;justify-content:center}
+  .cal-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:0 0 auto}
+  .cal-pontos b{font-size:.6rem;color:var(--cinza)}
+  .cal-dot.ct{background:#4FC3F7}   /* Teresina */
+  .cal-dot.cc{background:#FFB74D}   /* Caxias */
+  .cal-dot.cd{background:#81C784}   /* Dutra */
+  .cal-dot.cx{background:#BA68C8}   /* Transportadora */
+  .cal-dot.cg{background:#9E9E9E}   /* Geral */
+  .cal-sub{font-size:.8rem;font-weight:600;color:var(--cinza);margin-bottom:8px}
   /* Lista de usuários (painel Usuários) */
   .usr-lista{display:flex;flex-direction:column;gap:8px}
   .usr-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--borda);border-radius:10px;padding:10px 12px;background:var(--superficie-2)}
@@ -756,6 +780,7 @@
     <button class="btn-claro" id="btnComparativo" onclick="alternarComparativo()"><span class="mi">🚛</span><span class="mt">Comparativo de Preços</span></button>
     <button class="btn-claro" id="btnCotacoes" onclick="alternarCotacoes()"><span class="mi">💲</span><span class="mt">Cotações do Dia</span></button>
     <button class="btn-claro" id="btnAvisos" onclick="alternarAvisos()"><span class="mi">🔔</span><span class="mt">Notificações</span><span class="menu-badge" id="badgeAvisos" style="display:none"></span></button>
+    <button class="btn-claro" id="btnCalendario" onclick="alternarCalendario()"><span class="mi">📅</span><span class="mt">Calendário</span></button>
     <button class="btn-claro" onclick="exportarPDF()"><span class="mi">📄</span><span class="mt">Exportar PDF</span></button>
     <button class="btn-claro" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
     <button class="btn-claro" id="btnConfig" onclick="alternarConfig()"><span class="mi">⚙</span><span class="mt">Configurações</span></button>
@@ -843,6 +868,14 @@
       <h2>Notificações</h2>
       <p class="nota-dash">Avisos importantes vindos das agendas Google dos postos (vencimento de certificados, licenças, prazos...). Sincronizam automaticamente todo dia; para atualizar agora, peça ao Claude: "sincroniza as notificações".</p>
       <div id="conteudoAvisos"></div>
+    </div>
+  </div>
+
+  <div class="config" id="painelCalendario">
+    <div class="grupo">
+      <h2>Calendário</h2>
+      <p class="nota-dash">Todos os eventos das agendas dos postos e da transportadora, mês a mês. Toque num dia para ver só os eventos dele.</p>
+      <div id="conteudoCalendario"></div>
     </div>
   </div>
 
@@ -1609,6 +1642,8 @@ function iniciarSync(){
     atualizarBadgeAvisos();
     const pa = document.getElementById("painelAvisos");
     if (pa && pa.classList.contains("aberto")) renderAvisos();
+    const pc = document.getElementById("painelCalendario");
+    if (pc && pc.classList.contains("aberto")) renderCalendario();
   }, ()=>{});
 
   // Lançamentos
@@ -1785,7 +1820,7 @@ function excluir(i){
 
 /* ================== Salvar / Carregar / Exportar ================== */
 // Painéis que ocupam a página; só um fica aberto por vez
-const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelCotacoes","painelAvisos","painelConfig","painelAdmin"];
+const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelCotacoes","painelAvisos","painelCalendario","painelConfig","painelAdmin"];
 function fecharTodosPaineis(exceto){
   PAINEIS.forEach(id => {
     const el = document.getElementById(id);
@@ -1810,6 +1845,8 @@ function fecharTodosPaineis(exceto){
   if (bcot) bcot.classList.toggle("ativo", document.getElementById("painelCotacoes").classList.contains("aberto"));
   const bav = document.getElementById("btnAvisos");
   if (bav) bav.classList.toggle("ativo", document.getElementById("painelAvisos").classList.contains("aberto"));
+  const bcal = document.getElementById("btnCalendario");
+  if (bcal) bcal.classList.toggle("ativo", document.getElementById("painelCalendario").classList.contains("aberto"));
 }
 
 /* ===== Menu lateral: abrir/fechar no celular ===== */
@@ -2098,6 +2135,114 @@ function renderAvisos(){
       '</div>';
   });
   html += '</div>';
+  cont.innerHTML = html;
+}
+
+/* ================== Calendário (eventos das agendas) ================== */
+const MESES_CAL = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+let calAno = null, calMes = null, calDiaSel = null;   // mês 0-11
+
+function alternarCalendario(){
+  const aberto = abrirPainelExclusivo("painelCalendario");
+  const b = document.getElementById("btnCalendario");
+  if (b) b.classList.toggle("ativo", aberto);
+  if (aberto){
+    if (calAno === null){ const h = new Date(); calAno = h.getFullYear(); calMes = h.getMonth(); }
+    renderCalendario();
+  }
+}
+function mudarMesCal(delta){
+  calMes += delta;
+  if (calMes < 0){ calMes = 11; calAno--; }
+  if (calMes > 11){ calMes = 0; calAno++; }
+  calDiaSel = null;
+  renderCalendario();
+}
+function hojeCal(){
+  const h = new Date();
+  calAno = h.getFullYear(); calMes = h.getMonth(); calDiaSel = hojeISO();
+  renderCalendario();
+}
+function selDiaCal(iso){
+  calDiaSel = (calDiaSel === iso) ? null : iso;   // segundo toque no mesmo dia desmarca
+  renderCalendario();
+}
+function origemClasseCal(o){
+  o = String(o||'').toLowerCase();
+  if (o.indexOf('teresina') >= 0) return 'ct';
+  if (o.indexOf('caxias') >= 0) return 'cc';
+  if (o.indexOf('dutra') >= 0) return 'cd';
+  if (o.indexOf('transport') >= 0) return 'cx';
+  return 'cg';
+}
+function renderCalendario(){
+  const cont = document.getElementById("conteudoCalendario");
+  if (!cont) return;
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const eventos = (avisosDia && Array.isArray(avisosDia.eventos)) ? avisosDia.eventos.filter(e => e && e.data && e.titulo) : [];
+  const porDia = {};
+  eventos.forEach(e => { (porDia[e.data] = porDia[e.data] || []).push(e); });
+
+  // topo: navegação do mês
+  let html = '<div class="cal-topo">' +
+    '<button class="cal-nav" onclick="mudarMesCal(-1)" aria-label="Mês anterior">◀</button>' +
+    '<div class="cal-mes">' + MESES_CAL[calMes] + ' ' + calAno + '</div>' +
+    '<button class="cal-nav" onclick="mudarMesCal(1)" aria-label="Próximo mês">▶</button>' +
+    '<button class="cal-nav" onclick="hojeCal()">Hoje</button></div>';
+
+  // legenda das cores
+  html += '<div class="cal-leg">' +
+    '<span><i class="cal-dot ct"></i>Teresina</span>' +
+    '<span><i class="cal-dot cc"></i>Caxias</span>' +
+    '<span><i class="cal-dot cd"></i>Dutra</span>' +
+    '<span><i class="cal-dot cx"></i>Transportadora</span>' +
+    '<span><i class="cal-dot cg"></i>Outros</span></div>';
+
+  // grade do mês
+  const hoje = hojeISO();
+  const mm = String(calMes+1).padStart(2,"0");
+  const primeiroDow = new Date(calAno, calMes, 1).getDay();
+  const diasNoMes = new Date(calAno, calMes+1, 0).getDate();
+  html += '<div class="cal-grade">';
+  ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].forEach(d => html += '<div class="cal-sem">'+d+'</div>');
+  for (let i = 0; i < primeiroDow; i++) html += '<div class="cal-dia cal-vazio"></div>';
+  for (let dia = 1; dia <= diasNoMes; dia++){
+    const iso = calAno + '-' + mm + '-' + String(dia).padStart(2,"0");
+    const evs = porDia[iso] || [];
+    const cls = (iso === hoje ? ' hoje' : '') + (iso === calDiaSel ? ' sel' : '');
+    let pontos = evs.slice(0,3).map(e => '<i class="cal-dot '+origemClasseCal(e.origem)+'"></i>').join('');
+    if (evs.length > 3) pontos += '<b>+'+(evs.length-3)+'</b>';
+    html += '<button class="cal-dia'+cls+'" onclick="selDiaCal(\''+iso+'\')">' +
+      '<span class="cal-num">'+dia+'</span><span class="cal-pontos">'+pontos+'</span></button>';
+  }
+  html += '</div>';
+
+  // lista: eventos do dia escolhido, ou do mês inteiro
+  const prefixo = calAno + '-' + mm + '-';
+  const doMes = eventos.filter(e => String(e.data).indexOf(prefixo) === 0)
+    .slice().sort((a,b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
+  const lista = calDiaSel ? doMes.filter(e => e.data === calDiaSel) : doMes;
+  html += '<div class="cal-sub">' + (calDiaSel
+    ? 'Eventos de ' + fmtDataCurta(calDiaSel) + ' (toque no dia de novo para ver o mês todo)'
+    : 'Eventos de ' + MESES_CAL[calMes] + ' — ' + doMes.length + ' no total') + '</div>';
+  if (!lista.length){
+    html += '<p class="nota-dash">' + (eventos.length
+      ? 'Nenhum evento ' + (calDiaSel ? 'neste dia.' : 'neste mês.')
+      : 'Nenhum evento sincronizado ainda. Cadastre nas agendas Google e peça ao Claude: "sincroniza as notificações".') + '</p>';
+  } else {
+    html += '<div class="avi-lista">';
+    lista.forEach(e => {
+      html += '<div class="avi-item' + (e.data === hoje ? ' hoje' : '') + '">' +
+        '<span class="avi-data">' + (e.data === hoje ? 'HOJE' : fmtDataCurta(e.data).slice(0,5)) + '</span>' +
+        '<i class="cal-dot ' + origemClasseCal(e.origem) + '"></i>' +
+        '<span class="avi-tit">' + esc(e.titulo) + '</span>' +
+        (e.origem ? '<span class="avi-origem">' + esc(e.origem) + '</span>' : '') + '</div>';
+    });
+    html += '</div>';
+  }
+  if (avisosDia && avisosDia.atualizadoEm){
+    html += '<p class="cot-quem">🔄 Sincronizado em ' + fmtDataHora(new Date(avisosDia.atualizadoEm)) + '</p>';
+  }
   cont.innerHTML = html;
 }
 
@@ -3043,6 +3188,7 @@ function painelVisivelInfo(){
     ["painelComparativo", "Comparativo de Preços", "comparativo"],
     ["painelCotacoes",  "Cotações do Dia", "cotacoes"],
     ["painelAvisos",    "Notificações", "notificacoes"],
+    ["painelCalendario","Calendário",   "calendario"],
     ["painelConfig",    "Configurações", "configuracoes"],
     ["painelAdmin",     "Usuários",    "usuarios"],
   ];
