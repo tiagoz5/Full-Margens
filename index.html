@@ -134,9 +134,9 @@
   .menu-lateral .mi{flex:0 0 24px;text-align:center;font-size:1.05rem}
   .menu-lateral .mt{opacity:0;transition:opacity .12s}
   .menu-lateral:hover .mt{opacity:1}
-  .menu-lateral .menu-sair{color:var(--vermelho)}
-  /* Seletor de empresa (rodapé do menu lateral) */
-  .menu-sep{height:1px;background:var(--borda);margin:8px 6px 4px;margin-top:auto}
+  .menu-lateral .menu-sair{margin-top:auto;color:var(--vermelho)}
+  /* Seletor de empresa (topo do menu lateral) */
+  .menu-sep{height:1px;background:var(--borda);margin:6px 6px 8px}
   .menu-empresa-box{display:flex;flex-direction:column;gap:3px;padding:2px 0}
   .menu-empresa-box button{display:flex;align-items:center;gap:12px;white-space:nowrap;
     background:var(--menu-bg);color:var(--menu-txt);border:1px solid var(--borda);
@@ -826,6 +826,12 @@
 
   <div class="menu-fundo" id="menuFundo" onclick="fecharMenuLateral()"></div>
   <aside class="menu-lateral" id="menuLateral" aria-label="Menu principal">
+    <button class="btn-claro menu-empresa-btn" id="btnEmpresa" onclick="alternarSeletorEmpresa(event)"><span class="mi">🏢</span><span class="mt">Empresa: <b id="empresaNome">Postos Full</b> ▾</span></button>
+    <div class="menu-empresa-box" id="empresaBox" style="display:none">
+      <button type="button" onclick="definirEmpresa('postos')"><span class="mi">⛽</span><span>Postos Full</span></button>
+      <button type="button" onclick="definirEmpresa('transportadora')"><span class="mi">🚚</span><span>Full Transportadora</span></button>
+    </div>
+    <div class="menu-sep"></div>
     <button class="btn-claro" id="btnDash" onclick="alternarDash()"><span class="mi">📈</span><span class="mt">Dashboard</span></button>
     <button class="btn-claro" id="btnRegistros" onclick="alternarRegistros()"><span class="mi">📋</span><span class="mt">Lançamentos</span></button>
     <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()"><span class="mi">🕐</span><span class="mt">Histórico</span></button>
@@ -838,12 +844,6 @@
     <button class="btn-claro" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
     <button class="btn-claro" id="btnConfig" onclick="alternarConfig()"><span class="mi">⚙</span><span class="mt">Configurações</span></button>
     <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()"><span class="mi">👥</span><span class="mt">Usuários</span></button>
-    <div class="menu-sep"></div>
-    <button class="btn-claro menu-empresa-btn" id="btnEmpresa" onclick="alternarSeletorEmpresa(event)"><span class="mi">🏢</span><span class="mt">Empresa: <b id="empresaNome">Postos Full</b> ▾</span></button>
-    <div class="menu-empresa-box" id="empresaBox" style="display:none">
-      <button type="button" onclick="definirEmpresa('postos')"><span class="mi">⛽</span><span>Postos Full</span></button>
-      <button type="button" onclick="definirEmpresa('transportadora')"><span class="mi">🚚</span><span>Full Transportadora</span></button>
-    </div>
     <button class="btn-dourado menu-sair" onclick="sair()"><span class="mi">🚪</span><span class="mt">Sair</span></button>
   </aside>
 
