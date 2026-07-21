@@ -1094,6 +1094,16 @@ try {
 
 function pushSuportado(){ return !!messaging; }
 
+// Registra o SW de push no CAMINHO CERTO (relativo à pasta do app, não na raiz do domínio)
+// e num escopo próprio, para conviver com o sw.js de cache sem substituí-lo.
+let swRegPushPromise = null;
+function getSwRegPush(){
+  if (!swRegPushPromise){
+    swRegPushPromise = navigator.serviceWorker.register("firebase-messaging-sw.js", { scope: "firebase-cloud-messaging-push-scope" });
+  }
+  return swRegPushPromise;
+}
+
 function atualizarBotaoPush(){
   const b = document.getElementById("btnAtivarPush");
   const st = document.getElementById("pushStatus");
@@ -1129,7 +1139,8 @@ async function ativarAvisosPush(){
       atualizarBotaoPush();
       return;
     }
-    const token = await messaging.getToken({ vapidKey: VAPID_PUSH });
+    const reg = await getSwRegPush();
+    const token = await messaging.getToken({ vapidKey: VAPID_PUSH, serviceWorkerRegistration: reg });
     if (!token){
       if (st) st.textContent = "Não consegui registrar este aparelho agora. Tente novamente em instantes.";
       return;
@@ -1189,7 +1200,7 @@ function registrarTokenSePermitido(){
   const perm = (typeof Notification !== "undefined") ? Notification.permission : "default";
   if (perm !== "granted") return;
   window.__pushTokenRegistradoSessao = true;
-  messaging.getToken({ vapidKey: VAPID_PUSH }).then(token => {
+  getSwRegPush().then(reg => messaging.getToken({ vapidKey: VAPID_PUSH, serviceWorkerRegistration: reg })).then(token => {
     if (!token) return;
     const id = token.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 200);
     colPushTokens.doc(id).set({
