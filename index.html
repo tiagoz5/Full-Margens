@@ -941,11 +941,11 @@
   <div class="config" id="painelMotoristas">
     <div class="grupo">
       <h2>Motoristas e caminhões</h2>
-      <p class="nota-dash">Cadastre cada motorista com o caminhão que ele usa e a capacidade de carga (em litros). Essas informações são usadas no registro de puxadas e em relatórios futuros.</p>
+      <p class="nota-dash">Cadastre cada motorista com a placa do caminhão, a placa do tanque e a capacidade de carga (em litros). A placa do caminhão é o que liga cada CT-e ao motorista.</p>
       <div class="admin-form mot-form">
         <input id="motNome" maxlength="40" placeholder="Nome do motorista (ex.: Marcone)">
-        <input id="motCaminhao" maxlength="40" placeholder="Caminhão (ex.: Volvo Branco)">
-        <input id="motPlaca" maxlength="40" placeholder="Placa(s) — ex.: RSR4I66 (separe por vírgula)">
+        <input id="motPlacaCaminhao" maxlength="10" placeholder="Placa - Caminhão (ex.: RSR4I66)">
+        <input id="motPlacaTanque" maxlength="10" placeholder="Placa tanque (ex.: ROH0J42)">
         <input id="motCapacidade" inputmode="numeric" placeholder="Capacidade em litros (ex.: 37.000)" oninput="mascaraInteiro(this)">
         <button class="btn-verde" onclick="adicionarMotorista()">Adicionar motorista</button>
       </div>
@@ -961,7 +961,7 @@
       <div class="pux-form">
         <label>Data<input type="date" id="puxData"></label>
         <label>Motorista<select id="puxMotorista" onchange="onMotoristaPuxada()"></select></label>
-        <label>Caminhão<input id="puxCaminhao" readonly placeholder="—"></label>
+        <label>Placa - Caminhão<input id="puxCaminhao" readonly placeholder="—"></label>
         <label>Distribuidora (remetente)<select id="puxDistribuidora"></select></label>
         <label>Destinatário<input id="puxDestinatario" maxlength="60" placeholder="(opcional)"></label>
         <label>Soma das notas (R$)<input id="puxNotas" inputmode="decimal" placeholder="0,00" oninput="mascaraMoeda(this)"></label>
@@ -1953,7 +1953,13 @@ function iniciarSync(){
 
   // Cadastro de motoristas/caminhões (Full Transportadora)
   escutaTransportadora = docTransportadora.onSnapshot(snap => {
-    motoristas = (snap.exists && snap.data() && Array.isArray(snap.data().motoristas)) ? snap.data().motoristas : [];
+    if (!snap.exists){
+      // Primeiro acesso: pré-cadastra os motoristas conhecidos
+      motoristas = MOTORISTAS_PADRAO.map(m => Object.assign({ id:"m_seed_"+normPlaca(m.placaCaminhao) }, m));
+      docTransportadora.set({ motoristas }).catch(()=>{});
+    } else {
+      motoristas = (snap.data() && Array.isArray(snap.data().motoristas)) ? snap.data().motoristas : [];
+    }
     const pm = document.getElementById("painelMotoristas");
     if (pm && pm.classList.contains("aberto")) renderMotoristas();
     const pp = document.getElementById("painelPuxadas");
@@ -2696,9 +2702,11 @@ function lerMoeda(v){
 }
 function fmtLitros(n){ return isFinite(n) ? Math.round(n).toLocaleString("pt-BR") : "—"; }
 function normPlaca(s){ return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
-function parsePlacas(str){ return String(str||"").split(/[,;\s]+/).map(normPlaca).filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i); }
-function fmtPlacas(arr){ return Array.isArray(arr) ? arr.join(", ") : (arr?String(arr):""); }
-function motoristaPorPlaca(placa){ const p=normPlaca(placa); if(!p) return null; return motoristas.find(m => Array.isArray(m.placas) && m.placas.map(normPlaca).includes(p)) || null; }
+function motoristaPorPlaca(placa){ const p=normPlaca(placa); if(!p) return null; return motoristas.find(m => normPlaca(m.placaCaminhao)===p || normPlaca(m.placaTanque)===p) || null; }
+const MOTORISTAS_PADRAO = [
+  { nome:"Marcone",     placaCaminhao:"RSR4I66", placaTanque:"ROH0J42", capacidade:0 },
+  { nome:"Clécio Jean", placaCaminhao:"SNFIJ22", placaTanque:"UJM6J70", capacidade:0 }
+];
 
 /* ===================== Full Transportadora: Motoristas ===================== */
 function alternarMotoristas(){
@@ -2715,15 +2723,15 @@ function salvarMotoristas(){
 
 function adicionarMotorista(){
   const nome = document.getElementById("motNome").value.trim();
-  const caminhao = document.getElementById("motCaminhao").value.trim();
-  const placas = parsePlacas(document.getElementById("motPlaca").value);
+  const placaCaminhao = normPlaca(document.getElementById("motPlacaCaminhao").value);
+  const placaTanque = normPlaca(document.getElementById("motPlacaTanque").value);
   const capacidade = lerInteiro(document.getElementById("motCapacidade").value);
   if (!nome){ avisoAdmin("msgMotorista","Digite o nome do motorista.","erro"); return; }
-  motoristas.push({ id:"m_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6), nome, caminhao, placas, capacidade });
+  motoristas.push({ id:"m_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6), nome, placaCaminhao, placaTanque, capacidade });
   salvarMotoristas();
   document.getElementById("motNome").value="";
-  document.getElementById("motCaminhao").value="";
-  document.getElementById("motPlaca").value="";
+  document.getElementById("motPlacaCaminhao").value="";
+  document.getElementById("motPlacaTanque").value="";
   document.getElementById("motCapacidade").value="";
   avisoAdmin("msgMotorista","Motorista "+nome+" cadastrado.","ok");
   renderMotoristas();
@@ -2733,7 +2741,7 @@ function atualizarMotorista(id, campo, el){
   const m = motoristas.find(x=>x.id===id);
   if (!m) return;
   if (campo==="capacidade") m[campo] = lerInteiro(el.value);
-  else if (campo==="placas") m[campo] = parsePlacas(el.value);
+  else if (campo==="placaCaminhao" || campo==="placaTanque") m[campo] = normPlaca(el.value);
   else m[campo] = el.value.trim();
   salvarMotoristas();
 }
@@ -2764,8 +2772,8 @@ function renderMotoristas(){
     const cap = m.capacidade ? Number(m.capacidade).toLocaleString("pt-BR") : "";
     return '<div class="usr-item">' +
       '<input value="'+escAttr(m.nome)+'" onchange="atualizarMotorista(\''+m.id+'\',\'nome\',this)" placeholder="Nome">' +
-      '<input value="'+escAttr(m.caminhao||"")+'" onchange="atualizarMotorista(\''+m.id+'\',\'caminhao\',this)" placeholder="Caminhão">' +
-      '<input value="'+escAttr(fmtPlacas(m.placas))+'" onchange="atualizarMotorista(\''+m.id+'\',\'placas\',this)" placeholder="Placa(s)">' +
+      '<input value="'+escAttr(m.placaCaminhao||"")+'" onchange="atualizarMotorista(\''+m.id+'\',\'placaCaminhao\',this)" placeholder="Placa - Caminhão">' +
+      '<input value="'+escAttr(m.placaTanque||"")+'" onchange="atualizarMotorista(\''+m.id+'\',\'placaTanque\',this)" placeholder="Placa tanque">' +
       '<input value="'+cap+'" inputmode="numeric" oninput="mascaraInteiro(this)" onchange="atualizarMotorista(\''+m.id+'\',\'capacidade\',this)" placeholder="Litros">' +
       '<button class="btn-claro'+(conf?' confirmar':'')+'" onclick="removerMotorista(\''+m.id+'\')">'+(conf?'✓ confirmar?':'Remover')+'</button>' +
       '</div>';
@@ -2798,7 +2806,7 @@ function popularSelectMotoristas(){
   if (!sel || document.activeElement === sel) return;
   const atual = sel.value;
   sel.innerHTML = ['<option value="">— selecione —</option>'].concat(
-    motoristas.map(m => '<option value="'+m.id+'">'+escAttr(m.nome)+(m.caminhao?(' ('+escAttr(m.caminhao)+')'):'')+'</option>')
+    motoristas.map(m => '<option value="'+m.id+'">'+escAttr(m.nome)+(m.placaCaminhao?(' ('+escAttr(m.placaCaminhao)+')'):'')+'</option>')
   ).join("");
   if (atual) sel.value = atual;
 }
@@ -2816,7 +2824,7 @@ function onMotoristaPuxada(){
   const sel = document.getElementById("puxMotorista");
   const m = motoristas.find(x=>x.id===sel.value);
   const cam = document.getElementById("puxCaminhao");
-  if (cam) cam.value = m ? (m.caminhao||"") : "";
+  if (cam) cam.value = m ? (m.placaCaminhao||"") : "";
 }
 
 function calcularLitrosPuxada(){
@@ -2842,9 +2850,10 @@ function registrarPuxada(){
   if (!(fretePorLitro>0)){ avisoAdmin("msgPuxada","Informe o frete por litro (R$/L).","erro"); return; }
   if (!nuvemPronta){ avisoAdmin("msgPuxada","Sem conexão no momento — tente novamente.","erro"); return; }
   const litros = valorFrete / fretePorLitro;
-  const placa = (Array.isArray(m.placas) && m.placas.length) ? m.placas[0] : "";
+  const placaCaminhao = m.placaCaminhao||"";
+  const placaTanque = m.placaTanque||"";
   const id = "p_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6);
-  colPuxadas.doc(id).set({ data, motoristaId:m.id, motorista:m.nome, caminhao:m.caminhao||"", placa, distribuidora, destinatario, valorNotas, valorFrete, fretePorLitro, litros, origem:"manual", criadoEm: Date.now() }).catch(()=>{});
+  colPuxadas.doc(id).set({ data, motoristaId:m.id, motorista:m.nome, placaCaminhao, placaTanque, distribuidora, destinatario, valorNotas, valorFrete, fretePorLitro, litros, origem:"manual", criadoEm: Date.now() }).catch(()=>{});
   document.getElementById("puxNotas").value="";
   document.getElementById("puxFrete").value="";
   document.getElementById("puxDestinatario").value="";
@@ -2882,8 +2891,7 @@ function vincularPlaca(placa, motoristaId){
   const m = motoristas.find(x=>x.id===motoristaId);
   if (!m) return;
   const pl = normPlaca(placa);
-  if (!Array.isArray(m.placas)) m.placas = [];
-  if (!m.placas.map(normPlaca).includes(pl)) m.placas.push(pl);
+  m.placaCaminhao = pl;   // a placa do CT-e é a do caminhão
   salvarMotoristas();   // motoristaPorPlaca passa a casar; renderPuxadas reconcilia as puxadas
   renderPuxadas();
 }
@@ -2897,15 +2905,15 @@ function renderPuxadas(){
   if (nuvemPronta){
     puxadas.forEach(p => {
       if (p.motoristaId && !p.motoristaPendente) return;
-      const mm = motoristaPorPlaca(p.placa);
-      if (mm) colPuxadas.doc(p.id).set({ motoristaId:mm.id, motorista:mm.nome, caminhao:mm.caminhao||"", motoristaPendente:false }, {merge:true}).catch(()=>{});
+      const mm = motoristaPorPlaca(p.placaCaminhao) || motoristaPorPlaca(p.placaTanque);
+      if (mm) colPuxadas.doc(p.id).set({ motoristaId:mm.id, motorista:mm.nome, motoristaPendente:false }, {merge:true}).catch(()=>{});
     });
   }
 
   // Caixa: placas que apareceram (dos CT-e) e ainda não estão em nenhum motorista
   const pendMap = {};
   puxadas.forEach(p => {
-    const pl = normPlaca(p.placa);
+    const pl = normPlaca(p.placaCaminhao);
     if (!pl) return;
     if (p.motoristaId && !p.motoristaPendente) return;
     if (motoristaPorPlaca(pl)) return;
@@ -2935,7 +2943,7 @@ function renderPuxadas(){
   const doMes = puxadas.filter(p => String(p.data||"").slice(0,7)===mesPuxadas);
   const resumo = {};
   doMes.forEach(p => {
-    const nome = p.motorista || (p.placa ? ("Placa "+p.placa) : "(sem motorista)");
+    const nome = p.motorista || (p.placaCaminhao ? ("Placa "+p.placaCaminhao) : "(sem motorista)");
     if (!resumo[nome]) resumo[nome] = { litros:0, qtd:0, frete:0 };
     resumo[nome].litros += (+p.litros||0);
     resumo[nome].frete  += (+p.valorFrete||0);
@@ -2965,13 +2973,13 @@ function renderPuxadas(){
     lista.innerHTML = '<p class="nota-dash">Nenhuma puxada registrada ainda.</p>';
     return;
   }
-  let h = '<div class="tabela-wrap"><table class="pux-tab"><thead><tr><th>Data</th><th>Motorista</th><th>Placa</th><th>Distribuidora</th><th>Destinatário</th><th>Notas (R$)</th><th>Frete (R$)</th><th>Litros</th><th></th></tr></thead><tbody>';
+  let h = '<div class="tabela-wrap"><table class="pux-tab"><thead><tr><th>Data</th><th>Motorista</th><th>Placa (cam. / tanque)</th><th>Distribuidora</th><th>Destinatário</th><th>Notas (R$)</th><th>Frete (R$)</th><th>Litros</th><th></th></tr></thead><tbody>';
   puxadas.forEach(p=>{
     const conf = confirmarPuxada===p.id;
     h += '<tr>'+
       '<td>'+fmtDataCurta(p.data)+'</td>'+
       '<td>'+escAttr(p.motorista||"—")+'</td>'+
-      '<td>'+escAttr(p.placa||"")+'</td>'+
+      '<td>'+escAttr([p.placaCaminhao,p.placaTanque].filter(Boolean).join(" / "))+'</td>'+
       '<td>'+escAttr(p.distribuidora||"")+'</td>'+
       '<td>'+escAttr(p.destinatario||"")+'</td>'+
       '<td>R$ '+fmtBR(+p.valorNotas||0,2)+'</td>'+
