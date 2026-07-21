@@ -624,6 +624,10 @@
   .pux-tab th,.pux-tab td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--borda);white-space:nowrap}
   .pux-tab thead th{background:var(--thead-bg);color:#fff;font-weight:600}
   .pux-tab tfoot th{background:var(--superficie-2);font-weight:700}
+  .box-placa{border:1px solid var(--verde);border-radius:10px;background:var(--verde-claro);padding:14px 16px}
+  .placa-linha{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0}
+  .placa-linha b{font-size:1rem}
+  .placa-linha select{border:1px solid var(--borda);border-radius:6px;padding:7px;font-size:.85rem;background:var(--superficie);color:var(--txt)}
   /* Notificações (avisos das agendas) */
   .avi-lista{display:flex;flex-direction:column;gap:8px;margin-top:10px}
   .avi-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--borda);border-radius:10px;padding:10px 12px;background:var(--superficie-2)}
@@ -941,6 +945,7 @@
       <div class="admin-form mot-form">
         <input id="motNome" maxlength="40" placeholder="Nome do motorista (ex.: Marcone)">
         <input id="motCaminhao" maxlength="40" placeholder="Caminhão (ex.: Volvo Branco)">
+        <input id="motPlaca" maxlength="40" placeholder="Placa(s) — ex.: RSR4I66 (separe por vírgula)">
         <input id="motCapacidade" inputmode="numeric" placeholder="Capacidade em litros (ex.: 37.000)" oninput="mascaraInteiro(this)">
         <button class="btn-verde" onclick="adicionarMotorista()">Adicionar motorista</button>
       </div>
@@ -957,7 +962,8 @@
         <label>Data<input type="date" id="puxData"></label>
         <label>Motorista<select id="puxMotorista" onchange="onMotoristaPuxada()"></select></label>
         <label>Caminhão<input id="puxCaminhao" readonly placeholder="—"></label>
-        <label>Distribuidora<select id="puxDistribuidora"></select></label>
+        <label>Distribuidora (remetente)<select id="puxDistribuidora"></select></label>
+        <label>Destinatário<input id="puxDestinatario" maxlength="60" placeholder="(opcional)"></label>
         <label>Soma das notas (R$)<input id="puxNotas" inputmode="decimal" placeholder="0,00" oninput="mascaraMoeda(this)"></label>
         <label>Frete total a pagar (R$)<input id="puxFrete" inputmode="decimal" placeholder="0,00" oninput="mascaraMoeda(this); calcularLitrosPuxada()"></label>
         <label>Frete por litro (R$/L)<input id="puxFreteLitro" inputmode="decimal" placeholder="0,00" oninput="calcularLitrosPuxada()"></label>
@@ -966,6 +972,7 @@
       <button class="btn-verde" onclick="registrarPuxada()">Registrar puxada</button>
       <div class="msg-admin" id="msgPuxada"></div>
     </div>
+    <div id="boxPlacaPendente" style="display:none"></div>
     <div class="grupo">
       <h2>Volume por motorista — <span id="puxMesRotulo"></span></h2>
       <p class="nota-dash">Soma dos litros de todas as puxadas de cada motorista no mês selecionado.</p>
@@ -2688,6 +2695,10 @@ function lerMoeda(v){
   const n = parseFloat(s); return isFinite(n)?n:0;
 }
 function fmtLitros(n){ return isFinite(n) ? Math.round(n).toLocaleString("pt-BR") : "—"; }
+function normPlaca(s){ return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
+function parsePlacas(str){ return String(str||"").split(/[,;\s]+/).map(normPlaca).filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i); }
+function fmtPlacas(arr){ return Array.isArray(arr) ? arr.join(", ") : (arr?String(arr):""); }
+function motoristaPorPlaca(placa){ const p=normPlaca(placa); if(!p) return null; return motoristas.find(m => Array.isArray(m.placas) && m.placas.map(normPlaca).includes(p)) || null; }
 
 /* ===================== Full Transportadora: Motoristas ===================== */
 function alternarMotoristas(){
@@ -2705,12 +2716,14 @@ function salvarMotoristas(){
 function adicionarMotorista(){
   const nome = document.getElementById("motNome").value.trim();
   const caminhao = document.getElementById("motCaminhao").value.trim();
+  const placas = parsePlacas(document.getElementById("motPlaca").value);
   const capacidade = lerInteiro(document.getElementById("motCapacidade").value);
   if (!nome){ avisoAdmin("msgMotorista","Digite o nome do motorista.","erro"); return; }
-  motoristas.push({ id:"m_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6), nome, caminhao, capacidade });
+  motoristas.push({ id:"m_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6), nome, caminhao, placas, capacidade });
   salvarMotoristas();
   document.getElementById("motNome").value="";
   document.getElementById("motCaminhao").value="";
+  document.getElementById("motPlaca").value="";
   document.getElementById("motCapacidade").value="";
   avisoAdmin("msgMotorista","Motorista "+nome+" cadastrado.","ok");
   renderMotoristas();
@@ -2719,7 +2732,9 @@ function adicionarMotorista(){
 function atualizarMotorista(id, campo, el){
   const m = motoristas.find(x=>x.id===id);
   if (!m) return;
-  m[campo] = (campo==="capacidade") ? lerInteiro(el.value) : el.value.trim();
+  if (campo==="capacidade") m[campo] = lerInteiro(el.value);
+  else if (campo==="placas") m[campo] = parsePlacas(el.value);
+  else m[campo] = el.value.trim();
   salvarMotoristas();
 }
 
@@ -2750,6 +2765,7 @@ function renderMotoristas(){
     return '<div class="usr-item">' +
       '<input value="'+escAttr(m.nome)+'" onchange="atualizarMotorista(\''+m.id+'\',\'nome\',this)" placeholder="Nome">' +
       '<input value="'+escAttr(m.caminhao||"")+'" onchange="atualizarMotorista(\''+m.id+'\',\'caminhao\',this)" placeholder="Caminhão">' +
+      '<input value="'+escAttr(fmtPlacas(m.placas))+'" onchange="atualizarMotorista(\''+m.id+'\',\'placas\',this)" placeholder="Placa(s)">' +
       '<input value="'+cap+'" inputmode="numeric" oninput="mascaraInteiro(this)" onchange="atualizarMotorista(\''+m.id+'\',\'capacidade\',this)" placeholder="Litros">' +
       '<button class="btn-claro'+(conf?' confirmar':'')+'" onclick="removerMotorista(\''+m.id+'\')">'+(conf?'✓ confirmar?':'Remover')+'</button>' +
       '</div>';
@@ -2819,16 +2835,19 @@ function registrarPuxada(){
   const valorNotas = lerMoeda(document.getElementById("puxNotas").value);
   const valorFrete = lerMoeda(document.getElementById("puxFrete").value);
   const fretePorLitro = parsePrecoComp(document.getElementById("puxFreteLitro").value);
+  const destinatario = document.getElementById("puxDestinatario").value.trim();
   if (!m){ avisoAdmin("msgPuxada","Selecione o motorista.","erro"); return; }
   if (!distribuidora){ avisoAdmin("msgPuxada","Selecione a distribuidora.","erro"); return; }
   if (!(valorFrete>0)){ avisoAdmin("msgPuxada","Informe o frete total a pagar.","erro"); return; }
   if (!(fretePorLitro>0)){ avisoAdmin("msgPuxada","Informe o frete por litro (R$/L).","erro"); return; }
   if (!nuvemPronta){ avisoAdmin("msgPuxada","Sem conexão no momento — tente novamente.","erro"); return; }
   const litros = valorFrete / fretePorLitro;
+  const placa = (Array.isArray(m.placas) && m.placas.length) ? m.placas[0] : "";
   const id = "p_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6);
-  colPuxadas.doc(id).set({ data, motoristaId:m.id, motorista:m.nome, caminhao:m.caminhao||"", distribuidora, valorNotas, valorFrete, fretePorLitro, litros, criadoEm: Date.now() }).catch(()=>{});
+  colPuxadas.doc(id).set({ data, motoristaId:m.id, motorista:m.nome, caminhao:m.caminhao||"", placa, distribuidora, destinatario, valorNotas, valorFrete, fretePorLitro, litros, origem:"manual", criadoEm: Date.now() }).catch(()=>{});
   document.getElementById("puxNotas").value="";
   document.getElementById("puxFrete").value="";
+  document.getElementById("puxDestinatario").value="";
   document.getElementById("puxLitros").textContent="—";
   avisoAdmin("msgPuxada","Puxada registrada: "+fmtLitros(litros)+" L — "+m.nome+", "+distribuidora+".","ok");
 }
@@ -2859,10 +2878,56 @@ function fmtMesRotulo(ym){
   return (meses[(m||1)-1]||"")+" de "+a;
 }
 
+function vincularPlaca(placa, motoristaId){
+  const m = motoristas.find(x=>x.id===motoristaId);
+  if (!m) return;
+  const pl = normPlaca(placa);
+  if (!Array.isArray(m.placas)) m.placas = [];
+  if (!m.placas.map(normPlaca).includes(pl)) m.placas.push(pl);
+  salvarMotoristas();   // motoristaPorPlaca passa a casar; renderPuxadas reconcilia as puxadas
+  renderPuxadas();
+}
+
 function renderPuxadas(){
   popularSelectMotoristas();
   popularSelectDistPux();
   if (!mesPuxadas) mesPuxadas = hojeISO().slice(0,7);
+
+  // Reconciliação: puxadas cuja placa agora casa com um motorista cadastrado ganham o motorista
+  if (nuvemPronta){
+    puxadas.forEach(p => {
+      if (p.motoristaId && !p.motoristaPendente) return;
+      const mm = motoristaPorPlaca(p.placa);
+      if (mm) colPuxadas.doc(p.id).set({ motoristaId:mm.id, motorista:mm.nome, caminhao:mm.caminhao||"", motoristaPendente:false }, {merge:true}).catch(()=>{});
+    });
+  }
+
+  // Caixa: placas que apareceram (dos CT-e) e ainda não estão em nenhum motorista
+  const pendMap = {};
+  puxadas.forEach(p => {
+    const pl = normPlaca(p.placa);
+    if (!pl) return;
+    if (p.motoristaId && !p.motoristaPendente) return;
+    if (motoristaPorPlaca(pl)) return;
+    pendMap[pl] = (pendMap[pl]||0) + 1;
+  });
+  const pend = Object.keys(pendMap).map(pl => ({placa:pl, qtd:pendMap[pl]}));
+  const box = document.getElementById("boxPlacaPendente");
+  if (box){
+    if (!pend.length || !motoristas.length){ box.style.display="none"; box.innerHTML=""; }
+    else {
+      box.style.display="";
+      let hb = '<div class="grupo box-placa"><h2>Placa(s) sem motorista</h2>' +
+        '<p class="nota-dash">Estas placas apareceram em puxadas e ainda não estão vinculadas a um motorista. Escolha o motorista de cada uma — a partir daí ela passa a somar no volume dele (e futuras puxadas dessa placa entram sozinhas).</p>';
+      pend.forEach((pp,i) => {
+        hb += '<div class="placa-linha"><b>'+escAttr(pp.placa)+'</b> <span class="nota-dash">('+pp.qtd+' puxada'+(pp.qtd>1?'s':'')+')</span>' +
+          '<select id="selPlaca'+i+'">'+motoristas.map(m=>'<option value="'+m.id+'">'+escAttr(m.nome)+'</option>').join("")+'</select>' +
+          '<button class="btn-verde" onclick="vincularPlaca(\''+pp.placa+'\', document.getElementById(\'selPlaca'+i+'\').value)">Vincular</button></div>';
+      });
+      hb += '</div>';
+      box.innerHTML = hb;
+    }
+  }
   const rot = document.getElementById("puxMesRotulo");
   if (rot) rot.textContent = fmtMesRotulo(mesPuxadas);
 
@@ -2870,7 +2935,7 @@ function renderPuxadas(){
   const doMes = puxadas.filter(p => String(p.data||"").slice(0,7)===mesPuxadas);
   const resumo = {};
   doMes.forEach(p => {
-    const nome = p.motorista || "(sem motorista)";
+    const nome = p.motorista || (p.placa ? ("Placa "+p.placa) : "(sem motorista)");
     if (!resumo[nome]) resumo[nome] = { litros:0, qtd:0, frete:0 };
     resumo[nome].litros += (+p.litros||0);
     resumo[nome].frete  += (+p.valorFrete||0);
@@ -2900,17 +2965,17 @@ function renderPuxadas(){
     lista.innerHTML = '<p class="nota-dash">Nenhuma puxada registrada ainda.</p>';
     return;
   }
-  let h = '<div class="tabela-wrap"><table class="pux-tab"><thead><tr><th>Data</th><th>Motorista</th><th>Caminhão</th><th>Distribuidora</th><th>Notas (R$)</th><th>Frete (R$)</th><th>R$/L</th><th>Litros</th><th></th></tr></thead><tbody>';
+  let h = '<div class="tabela-wrap"><table class="pux-tab"><thead><tr><th>Data</th><th>Motorista</th><th>Placa</th><th>Distribuidora</th><th>Destinatário</th><th>Notas (R$)</th><th>Frete (R$)</th><th>Litros</th><th></th></tr></thead><tbody>';
   puxadas.forEach(p=>{
     const conf = confirmarPuxada===p.id;
     h += '<tr>'+
       '<td>'+fmtDataCurta(p.data)+'</td>'+
-      '<td>'+escAttr(p.motorista||"")+'</td>'+
-      '<td>'+escAttr(p.caminhao||"")+'</td>'+
+      '<td>'+escAttr(p.motorista||"—")+'</td>'+
+      '<td>'+escAttr(p.placa||"")+'</td>'+
       '<td>'+escAttr(p.distribuidora||"")+'</td>'+
+      '<td>'+escAttr(p.destinatario||"")+'</td>'+
       '<td>R$ '+fmtBR(+p.valorNotas||0,2)+'</td>'+
       '<td>R$ '+fmtBR(+p.valorFrete||0,2)+'</td>'+
-      '<td>'+fmtBR(+p.fretePorLitro||0,4)+'</td>'+
       '<td>'+fmtLitros(+p.litros||0)+' L</td>'+
       '<td><button class="btn-claro'+(conf?' confirmar':'')+'" onclick="removerPuxada(\''+p.id+'\')">'+(conf?'✓?':'✕')+'</button></td>'+
     '</tr>';
