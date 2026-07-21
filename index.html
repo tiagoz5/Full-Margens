@@ -745,6 +745,15 @@
     border-radius:10px;padding:12px 16px;max-width:90vw;box-shadow:0 6px 24px rgba(0,0,0,.3);
     z-index:9999;opacity:0;transition:transform .3s,opacity .3s;font-size:.9rem}
   .push-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+  /* ===== Modal "ativar avisos?" ===== */
+  .modal-push-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px}
+  .modal-push{background:var(--superficie);color:var(--txt);border:1px solid var(--borda);border-radius:16px;max-width:420px;width:100%;padding:26px 24px;text-align:center;box-shadow:0 14px 44px rgba(0,0,0,.45)}
+  .modal-push-icone{font-size:2.6rem;line-height:1;margin-bottom:8px}
+  .modal-push h3{margin:0 0 10px;font-family:"Oswald","Poppins",sans-serif}
+  .modal-push p{font-size:.9rem;color:var(--cinza);margin:0 0 20px}
+  .modal-push-botoes{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .modal-push-botoes button{flex:1 1 140px;max-width:210px}
 </style>
 </head>
 <body>
@@ -1133,6 +1142,7 @@ async function ativarAvisosPush(){
       atualizadoEm: new Date().toISOString()
     });
     if (st) st.textContent = "✅ Pronto! Este aparelho vai receber os avisos.";
+    mostrarToastPush("Avisos ativados ✓", "Este aparelho vai receber os avisos.");
     atualizarBotaoPush();
   } catch (e) {
     if (st) st.textContent = "Não deu para ativar agora: " + ((e && e.message) ? e.message : e);
@@ -1146,6 +1156,49 @@ function mostrarToastPush(titulo, corpo){
   t.classList.add("show");
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.classList.remove("show"), 6000);
+}
+
+/* Pergunta uma vez, no primeiro login do aparelho, se quer ativar os avisos */
+function talvezPerguntarPush(){
+  if (window.__pushPerguntadoSessao) return;
+  if (!pushSuportado()) return;
+  const perm = (typeof Notification !== "undefined") ? Notification.permission : "default";
+  if (perm !== "default") return;
+  let jaPerguntou = false;
+  try { jaPerguntou = localStorage.getItem("margens_push_perguntado") === "1"; } catch (e) {}
+  if (jaPerguntou) return;
+  window.__pushPerguntadoSessao = true;
+  const m = document.getElementById("modalPush");
+  if (m) m.style.display = "flex";
+}
+function fecharModalPush(){
+  const m = document.getElementById("modalPush");
+  if (m) m.style.display = "none";
+  try { localStorage.setItem("margens_push_perguntado", "1"); } catch (e) {}
+}
+function recusarPushModal(){ fecharModalPush(); }
+async function aceitarPushModal(){
+  fecharModalPush();
+  await ativarAvisosPush();
+}
+
+/* Se a permissão já foi concedida antes, re-registra o token silenciosamente */
+function registrarTokenSePermitido(){
+  if (window.__pushTokenRegistradoSessao) return;
+  if (!pushSuportado()) return;
+  const perm = (typeof Notification !== "undefined") ? Notification.permission : "default";
+  if (perm !== "granted") return;
+  window.__pushTokenRegistradoSessao = true;
+  messaging.getToken({ vapidKey: VAPID_PUSH }).then(token => {
+    if (!token) return;
+    const id = token.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 200);
+    colPushTokens.doc(id).set({
+      token,
+      email: usuarioAtual || (auth.currentUser && auth.currentUser.email) || "",
+      plataforma: navigator.userAgent,
+      atualizadoEm: new Date().toISOString()
+    }).catch(()=>{});
+  }).catch(()=>{});
 }
 
 /* E-mails com acesso ao painel de usuários */
@@ -1310,6 +1363,7 @@ function aoMudarLogin(usuario){
     iniciarSync();
     render();
     abrirDashboardInicial();   // garante o Dashboard aberto (sem alternar)
+    setTimeout(() => { registrarTokenSePermitido(); talvezPerguntarPush(); }, 1500);
   } else {
     if (escutaLancamentos){ escutaLancamentos(); escutaLancamentos = null; }
     if (escutaConfig){ escutaConfig(); escutaConfig = null; }
@@ -3660,5 +3714,16 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
 </script>
+  <div id="modalPush" class="modal-push-overlay" style="display:none">
+    <div class="modal-push">
+      <div class="modal-push-icone">🔔</div>
+      <h3>Ativar avisos neste aparelho?</h3>
+      <p>Receba um aviso no celular quando algo importante do calendário estiver chegando (vencimentos, prazos, licenças) — 1 dia antes e no dia. Você pode ativar ou desativar depois no menu Notificações.</p>
+      <div class="modal-push-botoes">
+        <button class="btn-claro" onclick="recusarPushModal()">Agora não</button>
+        <button class="btn-verde" onclick="aceitarPushModal()">Ativar avisos</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
