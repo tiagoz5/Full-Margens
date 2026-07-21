@@ -1076,19 +1076,6 @@
   </div>
 
   <div class="config" id="painelConfig">
-    <div class="grupo" id="grupoMotoristas" style="display:none">
-      <h2>Motoristas e caminhões</h2>
-      <p class="nota-dash">Cadastre cada motorista com a placa do caminhão, a placa do tanque e a capacidade de carga (em litros). A placa do caminhão é o que liga cada CT-e ao motorista.</p>
-      <div class="admin-form mot-form">
-        <input id="motNome" maxlength="40" placeholder="Nome do motorista (ex.: Marcone)">
-        <input id="motPlacaCaminhao" maxlength="10" placeholder="Placa - Caminhão (ex.: RSR4I66)">
-        <input id="motPlacaTanque" maxlength="10" placeholder="Placa tanque (ex.: ROH0J42)">
-        <input id="motCapacidade" inputmode="numeric" placeholder="Capacidade em litros (ex.: 37.000)" oninput="mascaraInteiro(this)">
-        <button class="btn-verde" onclick="adicionarMotorista()">Adicionar motorista</button>
-      </div>
-      <div class="msg-admin" id="msgMotorista"></div>
-      <div class="usr-lista" id="listaMotoristas"></div>
-    </div>
     <div class="grupo">
       <h2>Seu nome</h2>
       <div class="campo-nome">
@@ -1137,6 +1124,19 @@
         <span class="alerta-un">centavos/litro</span>
       </div>
       <div class="msg-admin" id="msgAlertas"></div>
+    </div>
+    <div class="grupo" id="grupoMotoristas" style="display:none">
+      <h2>Motoristas e caminhões</h2>
+      <p class="nota-dash">Cadastre cada motorista com a placa do caminhão, a placa do tanque e a capacidade de carga (em litros). A placa do caminhão é o que liga cada CT-e ao motorista.</p>
+      <div class="admin-form mot-form">
+        <input id="motNome" maxlength="40" placeholder="Nome do motorista (ex.: Marcone)">
+        <input id="motPlacaCaminhao" maxlength="10" placeholder="Placa - Caminhão (ex.: RSR4I66)">
+        <input id="motPlacaTanque" maxlength="10" placeholder="Placa tanque (ex.: ROH0J42)">
+        <input id="motCapacidade" inputmode="numeric" placeholder="Capacidade em litros (ex.: 37.000)" oninput="mascaraInteiro(this)">
+        <button class="btn-verde" onclick="adicionarMotorista()">Adicionar motorista</button>
+      </div>
+      <div class="msg-admin" id="msgMotorista"></div>
+      <div class="usr-lista" id="listaMotoristas"></div>
     </div>
   </div>
 
