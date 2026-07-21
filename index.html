@@ -722,6 +722,10 @@
   .comp-preco-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .comp-preco-row span{font-size:.8rem;color:var(--txt);flex:1 1 auto}
   .comp-preco-row input{max-width:120px;text-align:right}
+  .cot-preco-campo{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .cot-preco-campo input{max-width:110px;text-align:right}
+  .cot-undo{background:transparent;border:1px solid var(--borda);color:var(--cinza);border-radius:6px;padding:6px 8px;cursor:pointer;font-size:.85rem;line-height:1;flex:0 0 auto}
+  .cot-undo:hover{color:var(--verde);border-color:var(--verde)}
   .comp-add{margin-top:12px}
   .comp-melhor{border:2px solid var(--verde);border-radius:12px;padding:14px 16px;background:var(--verde-claro);margin-bottom:16px}
   .comp-melhor-tag{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--verde)}
@@ -995,8 +999,6 @@
         <label class="cot-data-lbl">Dia:
           <input type="date" id="cotData" onchange="carregarCotDia()">
         </label>
-        <button class="btn-verde" id="btnSalvarCot" onclick="salvarCotacoes()">💾 Salvar cotações</button>
-        <button class="btn-claro" id="btnVoltarCot" onclick="voltarCotacoes()" title="Descartar o que você digitou e mostrar de novo o último valor salvo">↩️ Voltar</button>
         <span class="cot-status" id="cotStatus"></span>
       </div>
       <div id="conteudoCotacoes"></div>
@@ -1222,7 +1224,8 @@ let escutaCotacoes = null;
 let cotacoesDia = { dists: {} };   // cotações de HOJE sincronizadas da nuvem (config/cotacoesDia)
 let cotEdit = { dists: {} };       // buffer editável do dia selecionado
 let cotDataSel = "";               // dia selecionado (YYYY-MM-DD)
-let cotDirty = false;              // há alterações não salvas?
+let cotDirty = false;              // (não usado — auto-save de volta)
+let cotAnterior = {};              // valor anterior de cada preço, para o botão desfazer
 let escutaPetros = null;
 let petrosResumo = null;           // resumo do Petros sincronizado da nuvem
 let escutaAvisos = null;
@@ -1952,7 +1955,7 @@ function iniciarSync(){
   escutaCotacoes = docCotacoes.onSnapshot(snap => {
     cotacoesDia = (snap.exists && snap.data() && snap.data().dists) ? snap.data() : { dists: {} };
     const pc = document.getElementById("painelCotacoes");
-    if (pc && pc.classList.contains("aberto") && cotDataSel === hojeISO() && !cotDirty) carregarCotDia();
+    if (pc && pc.classList.contains("aberto") && cotDataSel === hojeISO()) carregarCotDia();
     const pcomp = document.getElementById("painelComparativo");
     if (pcomp && pcomp.classList.contains("aberto")) renderComparativo();
   }, ()=>{});
@@ -2457,8 +2460,9 @@ function voltarCotacoes(){
 }
 function carregarCotDia(){
   const dt = document.getElementById("cotData");
-  cotDataSel = (dt && dt.value) || hojeISO();
-  cotDirty = false;
+  const novaData = (dt && dt.value) || hojeISO();
+  if (novaData !== cotDataSel) cotAnterior = {};   // trocou de dia → limpa o desfazer
+  cotDataSel = novaData;
   const st = document.getElementById("cotStatus");
   if (st){ st.textContent = ""; st.className = "cot-status"; }
   if (cotDataSel === hojeISO()){
@@ -2481,6 +2485,7 @@ function fmtDataCurta(iso){
   const p = String(iso||"").split("-");
   return p.length === 3 ? p[2]+"/"+p[1]+"/"+p[0] : (iso||"");
 }
+function cotMostraPodium(nome){ return String(nome).toLowerCase() === "vibra"; }
 function renderCotacoes(){
   const cont = document.getElementById("conteudoCotacoes");
   if (!cont) return;
@@ -2502,10 +2507,19 @@ function renderCotacoes(){
     html += '<span class="cot-selo '+(temPreco?'hoje':'vazia')+'">'+(temPreco?'✓ lançada':'sem cotação')+'</span>';
     html += '</div><div class="comp-precos">';
     combustiveis.forEach(c => {
+      // Gasolina Podium só aparece no card da Vibra
+      if (/podium/i.test(c) && !cotMostraPodium(nome)) return;
       const p = precos[c] || 0;
+      const temDesfazer = cotAnterior[nome] && (cotAnterior[nome][c] !== undefined);
       html += '<div class="comp-preco-row"><span>'+c+'</span>' +
-        '<input type="text" inputmode="decimal" value="'+fmtPrecoComp(p)+'" placeholder="0,00" ' +
-        'onchange="setPrecoCotacao(\''+escAspas(nome)+'\', \''+escAspas(c)+'\', this.value)"></div>';
+        '<span class="cot-preco-campo">' +
+          '<input type="text" inputmode="decimal" value="'+fmtPrecoComp(p)+'" placeholder="0,00" ' +
+            'onchange="setPrecoCotacao(\''+escAspas(nome)+'\', \''+escAspas(c)+'\', this.value)">' +
+          (temDesfazer
+            ? '<button class="cot-undo" title="Desfazer este preço (voltar ao anterior)" onclick="voltarPreco(\''+escAspas(nome)+'\', \''+escAspas(c)+'\')">↩</button>'
+            : '') +
+        '</span>' +
+      '</div>';
     });
     html += '</div>';
     if (temPreco && d.por){
@@ -2516,44 +2530,54 @@ function renderCotacoes(){
   html += '</div>';
   html += '<p class="nota-dash" style="margin-top:14px">' +
     (ehHoje
-      ? 'Preencha as cotações de hoje e toque em <b>💾 Salvar cotações</b>. Para conferir outro dia, escolha a data acima.'
-      : 'Você está vendo as cotações de <b>'+fmtDataCurta(cotDataSel)+'</b>. Alterações só são gravadas ao tocar em <b>💾 Salvar cotações</b>.') +
+      ? 'Os preços são salvos na nuvem automaticamente ao sair do campo. Errou uma digitação? Toque no ↩ ao lado daquele preço para voltar ao valor anterior. Para conferir outro dia, escolha a data acima.'
+      : 'Você está vendo (e editando) as cotações de <b>'+fmtDataCurta(cotDataSel)+'</b>. As mudanças são salvas automaticamente; o ↩ ao lado de cada preço desfaz aquela digitação.') +
     '</p>';
   cont.innerHTML = html;
+}
+function persistirCotDia(){
+  const data = cotDataSel || hojeISO();
+  const payload = { dists:{}, data: data, por: usuarioAtual || "" };
+  Object.keys((cotEdit && cotEdit.dists) || {}).forEach(nome => {
+    const precos = Object.assign({}, (cotEdit.dists[nome]||{}).precos || {});   // cópia própria
+    if (Object.keys(precos).length){
+      payload.dists[nome] = { precos: precos, data: data, por: usuarioAtual || "" };
+    }
+  });
+  db.collection("cotacoes").doc(data).set(payload).catch(()=>{});
+  if (data === hojeISO()){
+    const espelho = JSON.parse(JSON.stringify({ dists: payload.dists }));
+    cotacoesDia = espelho;
+    docCotacoes.set(espelho).catch(()=>{});
+  }
+  const st = document.getElementById("cotStatus");
+  if (st){ st.textContent = "✓ salvo na nuvem"; st.className = "cot-status ok"; }
 }
 function setPrecoCotacao(dist, comb, val){
   const v = parsePrecoComp(val);
   if (!cotEdit.dists) cotEdit.dists = {};
   const d = cotEdit.dists[dist] || (cotEdit.dists[dist] = { precos:{} });
   if (!d.precos) d.precos = {};
+  const antes = (d.precos[comb] != null) ? d.precos[comb] : 0;   // valor antes desta edição
+  const novo = (v > 0) ? v : 0;
+  if (novo === antes){ renderCotacoes(); return; }               // não mudou nada
+  if (!cotAnterior[dist]) cotAnterior[dist] = {};
+  cotAnterior[dist][comb] = antes;                                // guarda para o desfazer
   if (v > 0) d.precos[comb] = v; else delete d.precos[comb];
   d.por = usuarioAtual || "";
-  cotDirty = true;
-  const st = document.getElementById("cotStatus");
-  if (st){ st.textContent = "Alterações não salvas"; st.className = "cot-status pend"; }
+  persistirCotDia();
+  renderCotacoes();
 }
-function salvarCotacoes(){
-  const data = cotDataSel || hojeISO();
-  const st = document.getElementById("cotStatus");
-  const payload = { dists:{}, data: data, por: usuarioAtual || "" };
-  Object.keys((cotEdit && cotEdit.dists) || {}).forEach(nome => {
-    const d = cotEdit.dists[nome] || {};
-    const precos = Object.assign({}, d.precos || {});   // cópia própria (não compartilhar referência com o buffer)
-    if (Object.keys(precos).length){
-      payload.dists[nome] = { precos: precos, data: data, por: usuarioAtual || "" };
-    }
-  });
-  if (st){ st.textContent = "Salvando…"; st.className = "cot-status"; }
-  db.collection("cotacoes").doc(data).set(payload).then(()=>{
-    cotDirty = false;
-    if (st){ st.textContent = "✓ Salvo"; st.className = "cot-status ok"; }
-    if (data === hojeISO()){
-      const espelho = JSON.parse(JSON.stringify({ dists: payload.dists }));
-      cotacoesDia = espelho;
-      docCotacoes.set(espelho).catch(()=>{});
-    }
-    renderCotacoes();
-  }).catch(()=>{ if (st){ st.textContent = "Erro ao salvar. Tente de novo."; st.className = "cot-status pend"; } });
+function voltarPreco(dist, comb){
+  if (!cotAnterior[dist] || cotAnterior[dist][comb] === undefined) return;
+  const antes = cotAnterior[dist][comb];
+  const d = cotEdit.dists[dist] || (cotEdit.dists[dist] = { precos:{} });
+  if (!d.precos) d.precos = {};
+  if (antes > 0) d.precos[comb] = antes; else delete d.precos[comb];
+  d.por = usuarioAtual || "";
+  delete cotAnterior[dist][comb];                                 // desfazer consumido
+  persistirCotDia();
+  renderCotacoes();
 }
 
 /* ================== Notificações (avisos das agendas) ================== */
