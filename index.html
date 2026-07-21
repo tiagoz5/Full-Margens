@@ -613,6 +613,17 @@
   .mot-form input{flex:1 1 170px}
   .usr-item input[readonly]{background:transparent;border-color:transparent;color:var(--txt);opacity:.9;cursor:default;box-shadow:none}
   .usr-item.editando{box-shadow:0 0 0 2px var(--verde) inset;background:var(--verde-claro)}
+  .usr-item .mot-campo{flex:1 1 190px;display:flex;min-width:0}
+  .usr-item .mot-campo input{flex:1 1 auto;width:100%;min-width:0}
+  .usr-item.usr-head{background:transparent;border:none;padding:0 12px;font-size:.68rem;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--cinza)}
+  .usr-head .mot-campo{align-items:flex-end}
+  .usr-head .usr-head-btn{flex:0 0 auto;width:96px}
+  .usr-item .mot-campo::before{display:none}
+  @media (max-width:640px){
+    .usr-item.usr-head{display:none}
+    .usr-item .mot-campo{flex:1 1 100%;flex-direction:column;gap:3px;align-items:stretch}
+    .usr-item .mot-campo::before{content:attr(data-lbl);display:block;font-size:.7rem;font-weight:600;color:var(--cinza)}
+  }
   .pux-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:10px;max-width:920px}
   .pux-form label{display:flex;flex-direction:column;gap:5px;font-size:.74rem;font-weight:600;color:var(--cinza)}
   .pux-form input,.pux-form select{border:1px solid var(--borda);border-radius:6px;padding:9px;font-size:.9rem;background:var(--superficie);color:var(--txt)}
@@ -2783,25 +2794,32 @@ function renderMotoristas(){
     cont.innerHTML = '<p class="nota-dash">Nenhum motorista cadastrado ainda.</p>';
     return;
   }
-  cont.innerHTML = motoristas.map(m => {
+  const cabecalho = '<div class="usr-item usr-head">' +
+    '<span class="mot-campo">Motorista</span>' +
+    '<span class="mot-campo">Placa Caminhão</span>' +
+    '<span class="mot-campo">Placa Tanque</span>' +
+    '<span class="mot-campo">Capacidade</span>' +
+    '<span class="usr-head-btn"></span>' +
+    '</div>';
+  cont.innerHTML = cabecalho + motoristas.map(m => {
     const cap = m.capacidade ? Number(m.capacidade).toLocaleString("pt-BR") : "";
     if (editandoMotorista === m.id){
       const conf = confirmarMotorista === m.id;
       return '<div class="usr-item editando">' +
-        '<input id="motE_nome" maxlength="40" value="'+escAttr(m.nome)+'" placeholder="Nome">' +
-        '<input id="motE_placaCaminhao" maxlength="10" value="'+escAttr(m.placaCaminhao||"")+'" placeholder="Placa - Caminhão">' +
-        '<input id="motE_placaTanque" maxlength="10" value="'+escAttr(m.placaTanque||"")+'" placeholder="Placa tanque">' +
-        '<input id="motE_capacidade" inputmode="numeric" oninput="mascaraInteiro(this)" value="'+cap+'" placeholder="Litros">' +
+        '<label class="mot-campo" data-lbl="Motorista"><input id="motE_nome" maxlength="40" value="'+escAttr(m.nome)+'" placeholder="Nome"></label>' +
+        '<label class="mot-campo" data-lbl="Placa Caminhão"><input id="motE_placaCaminhao" maxlength="10" value="'+escAttr(m.placaCaminhao||"")+'" placeholder="Placa - Caminhão"></label>' +
+        '<label class="mot-campo" data-lbl="Placa Tanque"><input id="motE_placaTanque" maxlength="10" value="'+escAttr(m.placaTanque||"")+'" placeholder="Placa tanque"></label>' +
+        '<label class="mot-campo" data-lbl="Capacidade"><input id="motE_capacidade" inputmode="numeric" oninput="mascaraInteiro(this)" value="'+cap+'" placeholder="Litros"></label>' +
         '<button class="btn-verde" onclick="confirmarEdicaoMotorista(\''+m.id+'\')">✓ Confirmar alterações</button>' +
         '<button class="btn-claro" onclick="cancelarEdicaoMotorista()">Cancelar</button>' +
         '<button class="btn-claro'+(conf?' confirmar':'')+'" onclick="removerMotorista(\''+m.id+'\')">'+(conf?'✓ confirmar?':'🗑 Remover')+'</button>' +
         '</div>';
     }
     return '<div class="usr-item">' +
-      '<input value="'+escAttr(m.nome)+'" readonly>' +
-      '<input value="'+escAttr(m.placaCaminhao||"")+'" readonly>' +
-      '<input value="'+escAttr(m.placaTanque||"")+'" readonly>' +
-      '<input value="'+cap+'" readonly>' +
+      '<label class="mot-campo" data-lbl="Motorista"><input value="'+escAttr(m.nome)+'" readonly></label>' +
+      '<label class="mot-campo" data-lbl="Placa Caminhão"><input value="'+escAttr(m.placaCaminhao||"")+'" readonly></label>' +
+      '<label class="mot-campo" data-lbl="Placa Tanque"><input value="'+escAttr(m.placaTanque||"")+'" readonly></label>' +
+      '<label class="mot-campo" data-lbl="Capacidade"><input value="'+cap+'" readonly></label>' +
       '<button class="btn-claro" onclick="editarMotorista(\''+m.id+'\')">✏️ Editar</button>' +
       '</div>';
   }).join("");
