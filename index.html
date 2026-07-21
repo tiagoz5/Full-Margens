@@ -125,7 +125,7 @@
   .menu-lateral{position:fixed;left:0;top:0;bottom:0;width:62px;z-index:80;background:var(--superficie);
     border-right:1px solid var(--borda);display:flex;flex-direction:column;gap:4px;padding:14px 8px;
     overflow-x:hidden;overflow-y:auto;transition:width .18s ease;scrollbar-width:thin}
-  .menu-lateral:hover{width:238px;box-shadow:4px 0 18px rgba(0,0,0,.25)}
+  .menu-lateral:hover{width:258px;box-shadow:4px 0 18px rgba(0,0,0,.25)}
   .menu-lateral button{display:flex;align-items:center;gap:12px;justify-content:flex-start;white-space:nowrap;
     width:100%;border:none;background:transparent;text-align:left;flex:0 0 auto;cursor:pointer;position:relative}
   .menu-badge{position:absolute;left:24px;top:3px;background:var(--vermelho);color:#fff;font-size:.62rem;font-weight:700;border-radius:10px;padding:1px 5px;line-height:1.3}
@@ -826,7 +826,7 @@
 
   <div class="menu-fundo" id="menuFundo" onclick="fecharMenuLateral()"></div>
   <aside class="menu-lateral" id="menuLateral" aria-label="Menu principal">
-    <button class="btn-claro menu-empresa-btn" id="btnEmpresa" onclick="alternarSeletorEmpresa(event)"><span class="mi">🏢</span><span class="mt">Empresa: <b id="empresaNome">Postos Full</b> ▾</span></button>
+    <button class="btn-claro menu-empresa-btn" id="btnEmpresa" onclick="alternarSeletorEmpresa(event)"><span class="mi">🏢</span><span class="mt"><b id="empresaNome">Postos Full</b> ▾</span></button>
     <div class="menu-empresa-box" id="empresaBox" style="display:none">
       <button type="button" onclick="definirEmpresa('postos')"><span class="mi">⛽</span><span>Postos Full</span></button>
       <button type="button" onclick="definirEmpresa('transportadora')"><span class="mi">🚚</span><span>Full Transportadora</span></button>
