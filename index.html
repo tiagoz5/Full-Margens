@@ -72,6 +72,22 @@
     --thead-bg:#141516;
     color-scheme:dark;
   }
+
+  /* ============= EMPRESA: FULL TRANSPORTADORA (ouro / preto) ============= */
+  header img.logo-transp{display:none}
+  body.empresa-transportadora header img.logo-postos{display:none}
+  body.empresa-transportadora header img.logo-transp{display:block}
+  body.empresa-transportadora{
+    --verde:#96780F;        /* ouro MIV (legível como texto e como fundo) */
+    --dourado:#96780F;
+    --verde-claro:#F4EFDD;  /* tom ouro bem claro (fundos suaves) */
+  }
+  body.empresa-transportadora.tema-escuro{
+    --verde-claro:#33290A;
+  }
+  /* A tela de login mantém a identidade Postos Full (laranja) */
+  #telaLogin{ --verde:#FF6401; --dourado:#FF6401; --verde-claro:#FFF0E6; }
+
   *{box-sizing:border-box;margin:0;padding:0}
   body{
     font-family:"Poppins","Segoe UI",Arial,sans-serif;
@@ -118,7 +134,16 @@
   .menu-lateral .mi{flex:0 0 24px;text-align:center;font-size:1.05rem}
   .menu-lateral .mt{opacity:0;transition:opacity .12s}
   .menu-lateral:hover .mt{opacity:1}
-  .menu-lateral .menu-sair{margin-top:auto;color:var(--vermelho)}
+  .menu-lateral .menu-sair{color:var(--vermelho)}
+  /* Seletor de empresa (rodapé do menu lateral) */
+  .menu-sep{height:1px;background:var(--borda);margin:8px 6px 4px;margin-top:auto}
+  .menu-empresa-box{display:flex;flex-direction:column;gap:3px;padding:2px 0}
+  .menu-empresa-box button{display:flex;align-items:center;gap:12px;white-space:nowrap;
+    background:var(--menu-bg);color:var(--menu-txt);border:1px solid var(--borda);
+    border-radius:8px;padding:8px 9px;cursor:pointer;font:inherit;font-size:.82rem;opacity:.92}
+  .menu-empresa-box button:hover{box-shadow:0 0 0 2px var(--verde) inset}
+  .menu-empresa-box button.ativo{box-shadow:0 0 0 2px var(--verde) inset;color:var(--verde);font-weight:600}
+  .menu-empresa-box .mi{flex:0 0 24px;text-align:center;font-size:1.05rem}
   .menu-fundo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:75}
   .menu-hamb{display:none;background:transparent;border:1px solid var(--borda);color:var(--txt);
     border-radius:8px;font-size:1.25rem;line-height:1;padding:8px 12px;cursor:pointer;flex:0 0 auto}
@@ -813,14 +838,21 @@
     <button class="btn-claro" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
     <button class="btn-claro" id="btnConfig" onclick="alternarConfig()"><span class="mi">⚙</span><span class="mt">Configurações</span></button>
     <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()"><span class="mi">👥</span><span class="mt">Usuários</span></button>
+    <div class="menu-sep"></div>
+    <button class="btn-claro menu-empresa-btn" id="btnEmpresa" onclick="alternarSeletorEmpresa(event)"><span class="mi">🏢</span><span class="mt">Empresa: <b id="empresaNome">Postos Full</b> ▾</span></button>
+    <div class="menu-empresa-box" id="empresaBox" style="display:none">
+      <button type="button" onclick="definirEmpresa('postos')"><span class="mi">⛽</span><span>Postos Full</span></button>
+      <button type="button" onclick="definirEmpresa('transportadora')"><span class="mi">🚚</span><span>Full Transportadora</span></button>
+    </div>
     <button class="btn-dourado menu-sair" onclick="sair()"><span class="mi">🚪</span><span class="mt">Sair</span></button>
   </aside>
 
   <header>
     <div class="header-topo">
       <h1>
-        <img src="logo-full.png" alt="Postos Full" class="logo-app">
-        <span>Controle de Margens <span id="statusSalvo" aria-live="polite"></span></span>
+        <img src="logo-full.png" alt="Postos Full" class="logo-app logo-postos">
+        <img src="logo-transportadora.png?v=1" alt="Full Transportadora" class="logo-app logo-transp">
+        <span class="titulo-app">Controle de Margens <span id="statusSalvo" aria-live="polite"></span></span>
         <span class="usuario-logado" id="usuarioLogado"></span>
       </h1>
       <div class="tema-bloco">
@@ -1396,7 +1428,8 @@ function aoMudarLogin(usuario){
     document.getElementById("btnUsuarios").style.display = ehAdmin ? "" : "none";
     iniciarSync();
     render();
-    abrirDashboardInicial();   // garante o Dashboard aberto (sem alternar)
+    if (empresa === "transportadora") abrirComparativoInicial();   // empresa da transportadora
+    else abrirDashboardInicial();   // garante o Dashboard aberto (sem alternar)
     setTimeout(() => { registrarTokenSePermitido(); talvezPerguntarPush(); }, 1500);
   } else {
     if (escutaLancamentos){ escutaLancamentos(); escutaLancamentos = null; }
@@ -2070,6 +2103,68 @@ function fecharMenuLateral(){
   const m = document.getElementById("menuLateral");
   if (m) m.addEventListener("click", e => { if (e.target.closest("button")) fecharMenuLateral(); });
 })();
+
+/* ===================== Seletor de empresa ===================== */
+let empresa = "postos";
+const CHAVE_EMPRESA = "margens_empresa";
+const MENU_SO_POSTOS = ["btnDash","btnRegistros","btnHistorico","btnSimular","btnCotacoes"];
+const MENU_SO_TRANSP = ["btnComparativo"];
+
+function aplicarEmpresa(trocarPainel){
+  const ehTransp = empresa === "transportadora";
+  document.body.classList.toggle("empresa-transportadora", ehTransp);
+  const nome = document.getElementById("empresaNome");
+  if (nome) nome.textContent = ehTransp ? "Full Transportadora" : "Postos Full";
+  // Mostra/esconde os menus exclusivos de cada empresa (os demais são compartilhados)
+  MENU_SO_POSTOS.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = ehTransp ? "none" : ""; });
+  MENU_SO_TRANSP.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = ehTransp ? "" : "none"; });
+  // Destaca a opção ativa dentro da caixa
+  const box = document.getElementById("empresaBox");
+  if (box) box.querySelectorAll("button").forEach(b => b.classList.toggle("ativo", (b.getAttribute("onclick")||"").indexOf("'"+empresa+"'") >= 0));
+  if (trocarPainel){
+    if (ehTransp) abrirComparativoInicial();
+    else abrirDashboardInicial();
+  }
+}
+
+function definirEmpresa(nova){
+  if (nova !== "postos" && nova !== "transportadora") return;
+  const mudou = nova !== empresa;
+  empresa = nova;
+  try { localStorage.setItem(CHAVE_EMPRESA, empresa); } catch {}
+  const box = document.getElementById("empresaBox");
+  if (box) box.style.display = "none";
+  aplicarEmpresa(mudou);   // só troca de painel quando a empresa realmente mudou
+}
+
+function alternarSeletorEmpresa(e){
+  if (e) e.stopPropagation();   // não deixa o clique fechar o menu lateral no celular
+  const box = document.getElementById("empresaBox");
+  if (!box) return;
+  const escondido = (box.style.display === "none" || !box.style.display);
+  box.style.display = escondido ? "flex" : "none";
+}
+
+function abrirComparativoInicial(){
+  const painel = document.getElementById("painelComparativo");
+  if (painel && painel.classList.contains("aberto")){ renderComparativo(); return; }
+  alternarComparativo();
+}
+
+function restaurarEmpresa(){
+  let e = "postos";
+  try { e = localStorage.getItem(CHAVE_EMPRESA) || "postos"; } catch {}
+  empresa = (e === "transportadora") ? "transportadora" : "postos";
+  aplicarEmpresa(false);   // no boot não força painel; o aoMudarLogin abre o painel inicial certo
+}
+
+// Fecha a caixa de empresa ao clicar em qualquer lugar fora dela
+document.addEventListener("click", e => {
+  const box = document.getElementById("empresaBox");
+  if (!box || box.style.display === "none") return;
+  if (e.target.closest("#empresaBox") || e.target.closest("#btnEmpresa")) return;
+  box.style.display = "none";
+});
 
 // Abre um painel fechando os demais; se já estava aberto, apenas fecha (liga/desliga)
 function abrirPainelExclusivo(id){
@@ -3775,6 +3870,7 @@ function exportarPDFTabela(nomeArquivo){
 }
 
 restaurarTema();
+restaurarEmpresa();
 inicializarDatasFiltro();
 restaurarLembrarMe();
 concluir2FASePreciso();   // se o app foi aberto pelo link do e-mail, conclui a entrada
