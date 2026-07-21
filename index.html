@@ -852,7 +852,7 @@
       <h1>
         <img src="logo-full.png" alt="Postos Full" class="logo-app logo-postos">
         <img src="logo-transportadora.png?v=1" alt="Full Transportadora" class="logo-app logo-transp">
-        <span class="titulo-app">Controle de Margens <span id="statusSalvo" aria-live="polite"></span></span>
+        <span class="titulo-app"><span id="statusSalvo" aria-live="polite"></span></span>
         <span class="usuario-logado" id="usuarioLogado"></span>
       </h1>
       <div class="tema-bloco">
@@ -2107,7 +2107,7 @@ function fecharMenuLateral(){
 /* ===================== Seletor de empresa ===================== */
 let empresa = "postos";
 const CHAVE_EMPRESA = "margens_empresa";
-const MENU_SO_POSTOS = ["btnDash","btnRegistros","btnHistorico","btnSimular","btnCotacoes"];
+const MENU_SO_POSTOS = ["btnDash","btnRegistros","btnHistorico","btnSimular"];
 const MENU_SO_TRANSP = ["btnComparativo"];
 
 function aplicarEmpresa(trocarPainel){
