@@ -607,6 +607,23 @@
   .pet-l span{color:var(--cinza)}
   .pet-l b{color:var(--txt);white-space:nowrap}
   .pet-info{font-size:.72rem;color:var(--cinza);margin-top:10px}
+  /* Full Transportadora — Motoristas e Puxadas */
+  .btn-claro.confirmar{background:var(--vermelho);color:#fff;border-color:transparent}
+  .msg-admin.ok{color:var(--txt)}   /* legível também nos temas escuros */
+  .mot-form input{flex:1 1 170px}
+  .pux-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:10px;max-width:920px}
+  .pux-form label{display:flex;flex-direction:column;gap:5px;font-size:.74rem;font-weight:600;color:var(--cinza)}
+  .pux-form input,.pux-form select{border:1px solid var(--borda);border-radius:6px;padding:9px;font-size:.9rem;background:var(--superficie);color:var(--txt)}
+  .pux-form input:focus,.pux-form select:focus{outline:2px solid var(--verde);outline-offset:-1px}
+  .pux-form input[readonly]{background:var(--superficie-2);color:var(--cinza)}
+  .pux-litros{font-size:.92rem;margin:2px 0 14px;color:var(--txt)}
+  .pux-litros b{color:var(--verde);font-size:1.2rem}
+  .pux-mes-nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .pux-mes-nav .btn-claro{font-size:.8rem;border:1px solid var(--borda);padding:7px 12px}
+  .pux-tab{width:100%;border-collapse:collapse;font-size:.82rem}
+  .pux-tab th,.pux-tab td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--borda);white-space:nowrap}
+  .pux-tab thead th{background:var(--thead-bg);color:#fff;font-weight:600}
+  .pux-tab tfoot th{background:var(--superficie-2);font-weight:700}
   /* Notificações (avisos das agendas) */
   .avi-lista{display:flex;flex-direction:column;gap:8px;margin-top:10px}
   .avi-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--borda);border-radius:10px;padding:10px 12px;background:var(--superficie-2)}
@@ -837,6 +854,8 @@
     <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()"><span class="mi">🕐</span><span class="mt">Histórico</span></button>
     <button class="btn-claro" id="btnSimular" onclick="alternarSimular()"><span class="mi">💰</span><span class="mt">Simular Margens</span></button>
     <button class="btn-claro" id="btnComparativo" onclick="alternarComparativo()"><span class="mi">🚛</span><span class="mt">Comparativo de Preços</span></button>
+    <button class="btn-claro" id="btnMotoristas" onclick="alternarMotoristas()"><span class="mi">🧑‍✈️</span><span class="mt">Motoristas</span></button>
+    <button class="btn-claro" id="btnPuxadas" onclick="alternarPuxadas()"><span class="mi">🧾</span><span class="mt">Puxadas</span></button>
     <button class="btn-claro" id="btnCotacoes" onclick="alternarCotacoes()"><span class="mi">💲</span><span class="mt">Cotações do Dia</span></button>
     <button class="btn-claro" id="btnAvisos" onclick="alternarAvisos()"><span class="mi">🔔</span><span class="mt">Notificações</span><span class="menu-badge" id="badgeAvisos" style="display:none"></span></button>
     <button class="btn-claro" id="btnCalendario" onclick="alternarCalendario()"><span class="mi">📅</span><span class="mt">Calendário</span></button>
@@ -912,6 +931,53 @@
       <p class="nota-dash">Compare o custo total do pedido do caminhão em cada distribuidora: informe os volumes e as cotações, e o app mostra em qual compensa fechar o pedido.</p>
       <div id="conteudoComparativo"></div>
       <canvas id="compCanvas" width="1080" height="1920" style="display:none"></canvas>
+    </div>
+  </div>
+
+  <div class="config" id="painelMotoristas">
+    <div class="grupo">
+      <h2>Motoristas e caminhões</h2>
+      <p class="nota-dash">Cadastre cada motorista com o caminhão que ele usa e a capacidade de carga (em litros). Essas informações são usadas no registro de puxadas e em relatórios futuros.</p>
+      <div class="admin-form mot-form">
+        <input id="motNome" maxlength="40" placeholder="Nome do motorista (ex.: Marcone)">
+        <input id="motCaminhao" maxlength="40" placeholder="Caminhão (ex.: Volvo Branco)">
+        <input id="motCapacidade" inputmode="numeric" placeholder="Capacidade em litros (ex.: 37.000)" oninput="mascaraInteiro(this)">
+        <button class="btn-verde" onclick="adicionarMotorista()">Adicionar motorista</button>
+      </div>
+      <div class="msg-admin" id="msgMotorista"></div>
+      <div class="usr-lista" id="listaMotoristas"></div>
+    </div>
+  </div>
+
+  <div class="config" id="painelPuxadas">
+    <div class="grupo">
+      <h2>Registrar puxada</h2>
+      <p class="nota-dash">Informe a distribuidora onde a puxada foi fechada, o valor total das notas e o frete total a pagar. Os litros são calculados dividindo o frete total pelo frete por litro — o padrão vem das Configurações e pode ser ajustado aqui em cada puxada.</p>
+      <div class="pux-form">
+        <label>Data<input type="date" id="puxData"></label>
+        <label>Motorista<select id="puxMotorista" onchange="onMotoristaPuxada()"></select></label>
+        <label>Caminhão<input id="puxCaminhao" readonly placeholder="—"></label>
+        <label>Distribuidora<select id="puxDistribuidora"></select></label>
+        <label>Soma das notas (R$)<input id="puxNotas" inputmode="decimal" placeholder="0,00" oninput="mascaraMoeda(this)"></label>
+        <label>Frete total a pagar (R$)<input id="puxFrete" inputmode="decimal" placeholder="0,00" oninput="mascaraMoeda(this); calcularLitrosPuxada()"></label>
+        <label>Frete por litro (R$/L)<input id="puxFreteLitro" inputmode="decimal" placeholder="0,00" oninput="calcularLitrosPuxada()"></label>
+      </div>
+      <div class="pux-litros">Litros desta puxada: <b id="puxLitros">—</b></div>
+      <button class="btn-verde" onclick="registrarPuxada()">Registrar puxada</button>
+      <div class="msg-admin" id="msgPuxada"></div>
+    </div>
+    <div class="grupo">
+      <h2>Volume por motorista — <span id="puxMesRotulo"></span></h2>
+      <p class="nota-dash">Soma dos litros de todas as puxadas de cada motorista no mês selecionado.</p>
+      <div class="pux-mes-nav">
+        <button class="btn-claro" onclick="mudarMesPuxadas(-1)">◀ Mês anterior</button>
+        <button class="btn-claro" onclick="mudarMesPuxadas(1)">Próximo mês ▶</button>
+      </div>
+      <div id="resumoPuxadas"></div>
+    </div>
+    <div class="grupo">
+      <h2>Puxadas registradas</h2>
+      <div id="listaPuxadas"></div>
     </div>
   </div>
 
@@ -1111,6 +1177,8 @@ const docCotacoes = db.collection("config").doc("cotacoesDia");   // cotações 
 const docPetros = db.collection("config").doc("petrosResumo");    // resumo do Resultado no período (sistema Petros)
 const docAvisos = db.collection("config").doc("avisos");          // notificações vindas das agendas Google dos postos
 const docAlertas = db.collection("config").doc("alertas");        // limites dos alertas de cotação (usados pelo servidor)
+const docTransportadora = db.collection("config").doc("transportadora"); // cadastro de motoristas/caminhões da Full Transportadora
+const colPuxadas = db.collection("puxadas");                      // registro de puxadas da Full Transportadora
 let usuarioAtual = "";                 // e-mail de quem está logado (para o histórico)
 let nomeUsuario = "";                  // nome amigável do usuário logado
 let perfis = {};                       // mapa e-mail -> nome, sincronizado da nuvem
@@ -1132,6 +1200,10 @@ let escutaAlertas = null;
 // Limites dos alertas de cotação (o servidor lê isto para decidir quando notificar)
 let alertasConfig = { cotacaoSubiu: { ativo: true, centavos: 3 }, cotacaoCaiu: { ativo: true, centavos: 3 } };
 let avisosDia = null;              // notificações das agendas sincronizadas da nuvem
+let escutaTransportadora = null;
+let motoristas = [];               // [{id, nome, caminhao, capacidade}] cadastro da transportadora
+let escutaPuxadas = null;
+let puxadas = [];                  // [{id, data, motoristaId, motorista, caminhao, distribuidora, valorNotas, valorFrete, fretePorLitro, litros}]
 
 /* ================== Avisos push (Firebase Cloud Messaging) ================== */
 const VAPID_PUSH = "BD3M5m7ymG6lkC-MwDf7ZxDHcdmQbpr6lqlTFHwOAagTez92mfkXEElqX3R0klbA4ZNqLDJ2Nny2wA3xZDPY7e0";
@@ -1439,6 +1511,8 @@ function aoMudarLogin(usuario){
     if (escutaPetros){ escutaPetros(); escutaPetros = null; }
     if (escutaAvisos){ escutaAvisos(); escutaAvisos = null; }
     if (escutaAlertas){ escutaAlertas(); escutaAlertas = null; }
+    if (escutaTransportadora){ escutaTransportadora(); escutaTransportadora = null; }
+    if (escutaPuxadas){ escutaPuxadas(); escutaPuxadas = null; }
     nuvemPronta = false;
   }
 }
@@ -1870,6 +1944,25 @@ function iniciarSync(){
     if (pc && pc.classList.contains("aberto")) renderConfig();
   }, ()=>{});
 
+  // Cadastro de motoristas/caminhões (Full Transportadora)
+  escutaTransportadora = docTransportadora.onSnapshot(snap => {
+    motoristas = (snap.exists && snap.data() && Array.isArray(snap.data().motoristas)) ? snap.data().motoristas : [];
+    const pm = document.getElementById("painelMotoristas");
+    if (pm && pm.classList.contains("aberto")) renderMotoristas();
+    const pp = document.getElementById("painelPuxadas");
+    if (pp && pp.classList.contains("aberto")) renderPuxadas();
+  }, ()=>{});
+
+  // Puxadas registradas (Full Transportadora)
+  escutaPuxadas = colPuxadas.onSnapshot(snap => {
+    const lista = [];
+    snap.forEach(doc => lista.push({ id: doc.id, ...doc.data() }));
+    lista.sort((a,b)=>(b.data||"0000-00-00").localeCompare(a.data||"0000-00-00"));
+    puxadas = lista;
+    const pp = document.getElementById("painelPuxadas");
+    if (pp && pp.classList.contains("aberto")) renderPuxadas();
+  }, ()=>{});
+
   // Notificações (avisos das agendas Google dos postos)
   escutaAvisos = docAvisos.onSnapshot(snap => {
     avisosDia = snap.exists ? (snap.data() || null) : null;
@@ -2054,7 +2147,7 @@ function excluir(i){
 
 /* ================== Salvar / Carregar / Exportar ================== */
 // Painéis que ocupam a página; só um fica aberto por vez
-const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelCotacoes","painelAvisos","painelCalendario","painelConfig","painelAdmin"];
+const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelMotoristas","painelPuxadas","painelCotacoes","painelAvisos","painelCalendario","painelConfig","painelAdmin"];
 function fecharTodosPaineis(exceto){
   PAINEIS.forEach(id => {
     const el = document.getElementById(id);
@@ -2075,6 +2168,10 @@ function fecharTodosPaineis(exceto){
   if (bs) bs.classList.toggle("ativo", document.getElementById("painelSimular").classList.contains("aberto"));
   const bcomp = document.getElementById("btnComparativo");
   if (bcomp) bcomp.classList.toggle("ativo", document.getElementById("painelComparativo").classList.contains("aberto"));
+  const bmot = document.getElementById("btnMotoristas");
+  if (bmot) bmot.classList.toggle("ativo", document.getElementById("painelMotoristas").classList.contains("aberto"));
+  const bpux = document.getElementById("btnPuxadas");
+  if (bpux) bpux.classList.toggle("ativo", document.getElementById("painelPuxadas").classList.contains("aberto"));
   const bcot = document.getElementById("btnCotacoes");
   if (bcot) bcot.classList.toggle("ativo", document.getElementById("painelCotacoes").classList.contains("aberto"));
   const bav = document.getElementById("btnAvisos");
@@ -2108,7 +2205,7 @@ function fecharMenuLateral(){
 let empresa = "postos";
 const CHAVE_EMPRESA = "margens_empresa";
 const MENU_SO_POSTOS = ["btnDash","btnRegistros","btnHistorico","btnSimular"];
-const MENU_SO_TRANSP = ["btnComparativo"];
+const MENU_SO_TRANSP = ["btnComparativo","btnMotoristas","btnPuxadas"];
 
 function aplicarEmpresa(trocarPainel){
   const ehTransp = empresa === "transportadora";
@@ -2577,6 +2674,251 @@ function alternarComparativo(){
   if (b) b.classList.toggle("ativo", aberto);
   if (aberto) renderComparativo();
 }
+
+/* ===================== Full Transportadora: helpers ===================== */
+function escAttr(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function mascaraInteiro(campo){
+  let d = (campo.value||"").replace(/\D/g,"");
+  d = d.replace(/^0+/,"") || "";
+  campo.value = d ? Number(d).toLocaleString("pt-BR") : "";
+}
+function lerInteiro(v){ const n = parseInt(String(v).replace(/\D/g,""),10); return isFinite(n)?n:0; }
+function lerMoeda(v){
+  const s = String(v||"").replace(/\./g,"").replace(",",".").replace(/[^0-9.]/g,"");
+  const n = parseFloat(s); return isFinite(n)?n:0;
+}
+function fmtLitros(n){ return isFinite(n) ? Math.round(n).toLocaleString("pt-BR") : "—"; }
+
+/* ===================== Full Transportadora: Motoristas ===================== */
+function alternarMotoristas(){
+  const aberto = abrirPainelExclusivo("painelMotoristas");
+  const b = document.getElementById("btnMotoristas");
+  if (b) b.classList.toggle("ativo", aberto);
+  if (aberto) renderMotoristas();
+}
+
+function salvarMotoristas(){
+  if (!nuvemPronta) return;
+  docTransportadora.set({ motoristas }, { merge:true }).catch(()=>{});
+}
+
+function adicionarMotorista(){
+  const nome = document.getElementById("motNome").value.trim();
+  const caminhao = document.getElementById("motCaminhao").value.trim();
+  const capacidade = lerInteiro(document.getElementById("motCapacidade").value);
+  if (!nome){ avisoAdmin("msgMotorista","Digite o nome do motorista.","erro"); return; }
+  motoristas.push({ id:"m_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6), nome, caminhao, capacidade });
+  salvarMotoristas();
+  document.getElementById("motNome").value="";
+  document.getElementById("motCaminhao").value="";
+  document.getElementById("motCapacidade").value="";
+  avisoAdmin("msgMotorista","Motorista "+nome+" cadastrado.","ok");
+  renderMotoristas();
+}
+
+function atualizarMotorista(id, campo, el){
+  const m = motoristas.find(x=>x.id===id);
+  if (!m) return;
+  m[campo] = (campo==="capacidade") ? lerInteiro(el.value) : el.value.trim();
+  salvarMotoristas();
+}
+
+let confirmarMotorista = null, timerMotorista = null;
+function removerMotorista(id){
+  if (confirmarMotorista === id){
+    clearTimeout(timerMotorista); confirmarMotorista = null;
+    motoristas = motoristas.filter(x=>x.id!==id);
+    salvarMotoristas();
+    renderMotoristas();
+    return;
+  }
+  confirmarMotorista = id;
+  renderMotoristas();
+  timerMotorista = setTimeout(()=>{ confirmarMotorista=null; renderMotoristas(); }, 4000);
+}
+
+function renderMotoristas(){
+  const cont = document.getElementById("listaMotoristas");
+  if (!cont) return;
+  if (!motoristas.length){
+    cont.innerHTML = '<p class="nota-dash">Nenhum motorista cadastrado ainda.</p>';
+    return;
+  }
+  cont.innerHTML = motoristas.map(m => {
+    const conf = confirmarMotorista === m.id;
+    const cap = m.capacidade ? Number(m.capacidade).toLocaleString("pt-BR") : "";
+    return '<div class="usr-item">' +
+      '<input value="'+escAttr(m.nome)+'" onchange="atualizarMotorista(\''+m.id+'\',\'nome\',this)" placeholder="Nome">' +
+      '<input value="'+escAttr(m.caminhao||"")+'" onchange="atualizarMotorista(\''+m.id+'\',\'caminhao\',this)" placeholder="Caminhão">' +
+      '<input value="'+cap+'" inputmode="numeric" oninput="mascaraInteiro(this)" onchange="atualizarMotorista(\''+m.id+'\',\'capacidade\',this)" placeholder="Litros">' +
+      '<button class="btn-claro'+(conf?' confirmar':'')+'" onclick="removerMotorista(\''+m.id+'\')">'+(conf?'✓ confirmar?':'Remover')+'</button>' +
+      '</div>';
+  }).join("");
+}
+
+/* ===================== Full Transportadora: Puxadas ===================== */
+let mesPuxadas = null;   // "AAAA-MM" do resumo mensal
+
+function alternarPuxadas(){
+  const aberto = abrirPainelExclusivo("painelPuxadas");
+  const b = document.getElementById("btnPuxadas");
+  if (b) b.classList.toggle("ativo", aberto);
+  if (aberto) prepararPuxadas();
+}
+
+function prepararPuxadas(){
+  const dt = document.getElementById("puxData");
+  if (dt && !dt.value) dt.value = hojeISO();
+  const fl = document.getElementById("puxFreteLitro");
+  if (fl && !fl.value && isFinite(fretePadrao) && fretePadrao>0){
+    fl.value = fretePadrao.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4});
+  }
+  if (!mesPuxadas) mesPuxadas = hojeISO().slice(0,7);
+  renderPuxadas();
+}
+
+function popularSelectMotoristas(){
+  const sel = document.getElementById("puxMotorista");
+  if (!sel || document.activeElement === sel) return;
+  const atual = sel.value;
+  sel.innerHTML = ['<option value="">— selecione —</option>'].concat(
+    motoristas.map(m => '<option value="'+m.id+'">'+escAttr(m.nome)+(m.caminhao?(' ('+escAttr(m.caminhao)+')'):'')+'</option>')
+  ).join("");
+  if (atual) sel.value = atual;
+}
+function popularSelectDistPux(){
+  const sel = document.getElementById("puxDistribuidora");
+  if (!sel || document.activeElement === sel) return;
+  const atual = sel.value;
+  sel.innerHTML = ['<option value="">— selecione —</option>'].concat(
+    opcoesDe("distribuidora").map(d => '<option>'+escAttr(d)+'</option>')
+  ).join("");
+  if (atual) sel.value = atual;
+}
+
+function onMotoristaPuxada(){
+  const sel = document.getElementById("puxMotorista");
+  const m = motoristas.find(x=>x.id===sel.value);
+  const cam = document.getElementById("puxCaminhao");
+  if (cam) cam.value = m ? (m.caminhao||"") : "";
+}
+
+function calcularLitrosPuxada(){
+  const frete = lerMoeda(document.getElementById("puxFrete").value);
+  const fl = parsePrecoComp(document.getElementById("puxFreteLitro").value);
+  const out = document.getElementById("puxLitros");
+  if (!out) return;
+  out.textContent = (frete>0 && fl>0) ? (fmtLitros(frete/fl) + " L") : "—";
+}
+
+function registrarPuxada(){
+  const data = document.getElementById("puxData").value || hojeISO();
+  const sel = document.getElementById("puxMotorista");
+  const m = motoristas.find(x=>x.id===sel.value);
+  const distribuidora = document.getElementById("puxDistribuidora").value;
+  const valorNotas = lerMoeda(document.getElementById("puxNotas").value);
+  const valorFrete = lerMoeda(document.getElementById("puxFrete").value);
+  const fretePorLitro = parsePrecoComp(document.getElementById("puxFreteLitro").value);
+  if (!m){ avisoAdmin("msgPuxada","Selecione o motorista.","erro"); return; }
+  if (!distribuidora){ avisoAdmin("msgPuxada","Selecione a distribuidora.","erro"); return; }
+  if (!(valorFrete>0)){ avisoAdmin("msgPuxada","Informe o frete total a pagar.","erro"); return; }
+  if (!(fretePorLitro>0)){ avisoAdmin("msgPuxada","Informe o frete por litro (R$/L).","erro"); return; }
+  if (!nuvemPronta){ avisoAdmin("msgPuxada","Sem conexão no momento — tente novamente.","erro"); return; }
+  const litros = valorFrete / fretePorLitro;
+  const id = "p_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6);
+  colPuxadas.doc(id).set({ data, motoristaId:m.id, motorista:m.nome, caminhao:m.caminhao||"", distribuidora, valorNotas, valorFrete, fretePorLitro, litros, criadoEm: Date.now() }).catch(()=>{});
+  document.getElementById("puxNotas").value="";
+  document.getElementById("puxFrete").value="";
+  document.getElementById("puxLitros").textContent="—";
+  avisoAdmin("msgPuxada","Puxada registrada: "+fmtLitros(litros)+" L — "+m.nome+", "+distribuidora+".","ok");
+}
+
+let confirmarPuxada=null, timerPuxada=null;
+function removerPuxada(id){
+  if (confirmarPuxada===id){
+    clearTimeout(timerPuxada); confirmarPuxada=null;
+    if (nuvemPronta) colPuxadas.doc(id).delete().catch(()=>{});
+    renderPuxadas();
+    return;
+  }
+  confirmarPuxada=id; renderPuxadas();
+  timerPuxada=setTimeout(()=>{ confirmarPuxada=null; renderPuxadas(); },4000);
+}
+
+function mudarMesPuxadas(delta){
+  if (!mesPuxadas) mesPuxadas = hojeISO().slice(0,7);
+  let a = parseInt(mesPuxadas.slice(0,4),10), mm = parseInt(mesPuxadas.slice(5,7),10) + delta;
+  if (mm<1){ mm=12; a--; } else if (mm>12){ mm=1; a++; }
+  mesPuxadas = a+"-"+String(mm).padStart(2,"0");
+  renderPuxadas();
+}
+
+function fmtMesRotulo(ym){
+  const meses=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+  const a=parseInt(String(ym).slice(0,4),10), m=parseInt(String(ym).slice(5,7),10);
+  return (meses[(m||1)-1]||"")+" de "+a;
+}
+
+function renderPuxadas(){
+  popularSelectMotoristas();
+  popularSelectDistPux();
+  if (!mesPuxadas) mesPuxadas = hojeISO().slice(0,7);
+  const rot = document.getElementById("puxMesRotulo");
+  if (rot) rot.textContent = fmtMesRotulo(mesPuxadas);
+
+  // Resumo por motorista no mês selecionado
+  const doMes = puxadas.filter(p => String(p.data||"").slice(0,7)===mesPuxadas);
+  const resumo = {};
+  doMes.forEach(p => {
+    const nome = p.motorista || "(sem motorista)";
+    if (!resumo[nome]) resumo[nome] = { litros:0, qtd:0, frete:0 };
+    resumo[nome].litros += (+p.litros||0);
+    resumo[nome].frete  += (+p.valorFrete||0);
+    resumo[nome].qtd    += 1;
+  });
+  const cont = document.getElementById("resumoPuxadas");
+  const nomes = Object.keys(resumo).sort((a,b)=>resumo[b].litros-resumo[a].litros);
+  if (cont){
+    if (!nomes.length){
+      cont.innerHTML = '<p class="nota-dash">Nenhuma puxada neste mês.</p>';
+    } else {
+      let totL=0, totF=0, totQ=0;
+      let h = '<div class="tabela-wrap"><table class="pux-tab"><thead><tr><th>Motorista</th><th>Puxadas</th><th>Litros no mês</th><th>Frete no mês</th></tr></thead><tbody>';
+      nomes.forEach(n=>{
+        const r=resumo[n]; totL+=r.litros; totF+=r.frete; totQ+=r.qtd;
+        h += '<tr><td>'+escAttr(n)+'</td><td>'+r.qtd+'</td><td>'+fmtLitros(r.litros)+' L</td><td>R$ '+fmtBR(r.frete,2)+'</td></tr>';
+      });
+      h += '</tbody><tfoot><tr><th>Total</th><th>'+totQ+'</th><th>'+fmtLitros(totL)+' L</th><th>R$ '+fmtBR(totF,2)+'</th></tr></tfoot></table></div>';
+      cont.innerHTML = h;
+    }
+  }
+
+  // Lista completa de puxadas (recentes primeiro)
+  const lista = document.getElementById("listaPuxadas");
+  if (!lista) return;
+  if (!puxadas.length){
+    lista.innerHTML = '<p class="nota-dash">Nenhuma puxada registrada ainda.</p>';
+    return;
+  }
+  let h = '<div class="tabela-wrap"><table class="pux-tab"><thead><tr><th>Data</th><th>Motorista</th><th>Caminhão</th><th>Distribuidora</th><th>Notas (R$)</th><th>Frete (R$)</th><th>R$/L</th><th>Litros</th><th></th></tr></thead><tbody>';
+  puxadas.forEach(p=>{
+    const conf = confirmarPuxada===p.id;
+    h += '<tr>'+
+      '<td>'+fmtDataCurta(p.data)+'</td>'+
+      '<td>'+escAttr(p.motorista||"")+'</td>'+
+      '<td>'+escAttr(p.caminhao||"")+'</td>'+
+      '<td>'+escAttr(p.distribuidora||"")+'</td>'+
+      '<td>R$ '+fmtBR(+p.valorNotas||0,2)+'</td>'+
+      '<td>R$ '+fmtBR(+p.valorFrete||0,2)+'</td>'+
+      '<td>'+fmtBR(+p.fretePorLitro||0,4)+'</td>'+
+      '<td>'+fmtLitros(+p.litros||0)+' L</td>'+
+      '<td><button class="btn-claro'+(conf?' confirmar':'')+'" onclick="removerPuxada(\''+p.id+'\')">'+(conf?'✓?':'✕')+'</button></td>'+
+    '</tr>';
+  });
+  h += '</tbody></table></div>';
+  lista.innerHTML = h;
+}
+
 
 function parseVolComp(s){ const n = parseInt(String(s).replace(/\D/g,""),10); return isFinite(n)?n:0; }
 function parsePrecoComp(s){
