@@ -1101,12 +1101,12 @@ function mostrarEntrar(){
   document.getElementById("msgLogin").className = "msg-login";
 }
 
-/* ===== Login em duas etapas: senha + link de confirmação por e-mail =====
-   1ª etapa: confere a senha (sessão temporária, sem abrir o app).
-   2ª etapa: o Firebase envia um e-mail com link; só entra quem tocar no link.
-   Com "Lembrar-me" marcado, o aparelho continua logado e não pede de novo.
-   Se a opção "Email link" ainda não estiver ativa no painel do Firebase,
-   o login entra só com a senha (para ninguém ficar trancado para fora). */
+/* ===== Login por e-mail + senha =====
+   Login direto, sem link de confirmação por e-mail. O 2FA por link foi
+   removido porque não funciona em app instalado no iPhone: o link abre no
+   Safari e não conclui a entrada dentro do app instalado, gerando um loop.
+   "Lembrar-me" marcado mantém o aparelho logado (LOCAL); desmarcado sai ao
+   fechar o navegador (SESSION). */
 let aguardando2FA = false;
 
 function entrar(){
@@ -1115,41 +1115,16 @@ function entrar(){
   if(!email || !senha){ avisoLogin("Preencha e-mail e senha.", "erro"); return; }
   const lembrar = document.getElementById("lembrarMe").checked;
   try { localStorage.setItem("margens_lembrar_me", lembrar ? "1" : "0"); } catch {}
-  avisoLogin("Conferindo a senha...", "ok");
-  aguardando2FA = true;
-  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+  avisoLogin("Entrando...", "ok");
+  // "Lembrar-me" marcado = continua logado neste aparelho (LOCAL);
+  // desmarcado = sai ao fechar o navegador (SESSION).
+  const persistencia = lembrar
+    ? firebase.auth.Auth.Persistence.LOCAL
+    : firebase.auth.Auth.Persistence.SESSION;
+  auth.setPersistence(persistencia)
     .then(()=> auth.signInWithEmailAndPassword(email, senha))
-    .then(()=> auth.sendSignInLinkToEmail(email, {
-      url: location.origin + location.pathname,   // volta para o próprio app
-      handleCodeInApp: true
-    }))
-    .then(()=> auth.signOut())
-    .then(()=>{
-      try { localStorage.setItem("margens_2fa_email", email); } catch {}
-      document.getElementById("loginSenha").value = "";
-      aguardando2FA = false;
-      avisoLogin("Senha correta! Enviamos um link de confirmação para " + email +
-        ". Abra o e-mail neste aparelho e toque no link para concluir a entrada (confira também o spam).", "ok");
-    })
-    .catch(e => {
-      if (e && e.code === "auth/operation-not-allowed"){
-        // 2ª etapa ainda não ativada no painel do Firebase → entra só com a senha
-        aguardando2FA = false;
-        const persistencia = lembrar
-          ? firebase.auth.Auth.Persistence.LOCAL
-          : firebase.auth.Auth.Persistence.SESSION;
-        auth.setPersistence(persistencia)
-          .then(()=>{
-            document.getElementById("loginSenha").value = "";
-            aoMudarLogin(auth.currentUser);
-          })
-          .catch(()=>{ aoMudarLogin(auth.currentUser); });
-        return;
-      }
-      aguardando2FA = false;
-      auth.signOut().catch(()=>{});
-      avisoLogin(msgErro(e), "erro");
-    });
+    .then(()=>{ document.getElementById("loginSenha").value = ""; })
+    .catch(e => avisoLogin(msgErro(e), "erro"));
 }
 
 // Conclui a 2ª etapa quando o app é aberto pelo link do e-mail
