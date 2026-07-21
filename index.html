@@ -3001,7 +3001,8 @@ function renderPuxadas(){
     lista.innerHTML = '<p class="nota-dash">Nenhuma puxada registrada ainda.</p>';
     return;
   }
-  let h = '<div class="tabela-wrap"><table class="pux-tab pux-lista"><thead><tr><th>Data</th><th>Motorista</th><th>Placa (cam. / tanque)</th><th>Distribuidora</th><th>Destinatário</th><th>Frete (R$)</th><th>Litros</th><th></th></tr></thead><tbody>';
+  const admin = (typeof ADMINS!=='undefined') && ADMINS.includes((usuarioAtual||"").toLowerCase());
+  let h = '<div class="tabela-wrap"><table class="pux-tab pux-lista"><thead><tr><th>Data</th><th>Motorista</th><th>Placa (cam. / tanque)</th><th>Distribuidora</th><th>Destinatário</th><th>Frete (R$)</th><th>Litros</th>'+(admin?'<th></th>':'')+'</tr></thead><tbody>';
   puxadas.forEach(p=>{
     const conf = confirmarPuxada===p.id;
     h += '<tr>'+
@@ -3012,7 +3013,7 @@ function renderPuxadas(){
       '<td data-lbl="Destinatário">'+escAttr(p.destinatario||"")+'</td>'+
       '<td data-lbl="Frete">R$ '+fmtBR(+p.valorFrete||0,2)+'</td>'+
       '<td data-lbl="Litros">'+fmtLitros(+p.litros||0)+' L</td>'+
-      '<td class="pux-del"><button class="btn-claro'+(conf?' confirmar':'')+'" onclick="removerPuxada(\''+p.id+'\')">'+(conf?'✓?':'✕')+'</button></td>'+
+      (admin?('<td class="pux-del"><button class="btn-claro'+(conf?' confirmar':'')+'" onclick="removerPuxada(\''+p.id+'\')">'+(conf?'✓?':'✕')+'</button></td>'):'')+
     '</tr>';
   });
   h += '</tbody></table></div>';
