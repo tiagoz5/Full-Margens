@@ -589,6 +589,13 @@
   .avi-item.perto .avi-data{background:var(--verde-claro);color:var(--verde);border-color:transparent}
   .avi-tit{font-size:.9rem;color:var(--txt);flex:1 1 auto}
   .avi-origem{font-size:.7rem;font-weight:600;color:var(--cinza);border:1px dashed var(--borda);border-radius:20px;padding:2px 8px}
+  /* Lista de usuários (painel Usuários) */
+  .usr-lista{display:flex;flex-direction:column;gap:8px}
+  .usr-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--borda);border-radius:10px;padding:10px 12px;background:var(--superficie-2)}
+  .usr-email{font-size:.83rem;font-weight:600;color:var(--txt);flex:1 1 230px;word-break:break-all}
+  .usr-tag{font-size:.66rem;font-weight:700;text-transform:uppercase;color:var(--verde);border:1px solid var(--verde);border-radius:20px;padding:1px 8px}
+  .usr-item input{flex:1 1 190px;border:1px solid var(--borda);border-radius:6px;padding:8px;font-size:.85rem;background:var(--superficie);color:var(--txt)}
+  .usr-item .btn-claro{flex:0 0 auto;font-size:.8rem}
   .comp-zerar.zerar-confirma{color:var(--vermelho);border-color:var(--vermelho);font-weight:600}
   .comp-vol-item input,.comp-preco-row input,.comp-dist-nome{
     border:1px solid var(--borda);border-radius:6px;padding:8px;font-size:.9rem;
@@ -878,11 +885,18 @@
     <div class="grupo">
       <h2>Criar novo usuário</h2>
       <div class="admin-form">
+        <input type="text" id="novoUsuarioNome" maxlength="40" placeholder="Nome do funcionário (como aparece no app)">
         <input type="email" id="novoUsuarioEmail" placeholder="E-mail do funcionário">
         <input type="text" id="novoUsuarioSenha" placeholder="Senha inicial (mín. 6 caracteres)">
         <button class="btn-verde" onclick="criarUsuario()">Criar usuário</button>
       </div>
       <div class="msg-admin" id="msgAdmin"></div>
+    </div>
+    <div class="grupo">
+      <h2>Usuários cadastrados</h2>
+      <p class="nota-dash">Edite o nome de exibição (salva sozinho ao sair do campo) ou envie um link de troca de senha para o e-mail do usuário. Para remover, bloquear ou definir uma senha manualmente, use o painel do Firebase no fim da página.</p>
+      <div class="usr-lista" id="listaUsuarios"></div>
+      <div class="msg-admin" id="msgAdminLista"></div>
     </div>
     <div class="grupo">
       <h2>Redefinir senha de um usuário</h2>
@@ -985,6 +999,7 @@ const docAvisos = db.collection("config").doc("avisos");          // notificaç�
 let usuarioAtual = "";                 // e-mail de quem está logado (para o histórico)
 let nomeUsuario = "";                  // nome amigável do usuário logado
 let perfis = {};                       // mapa e-mail -> nome, sincronizado da nuvem
+let perfisDocs = {};                   // todos os perfis (mesmo sem nome), para a lista de usuários
 let ultimaSync = null;                 // Date da última sincronização com a nuvem
 let escutaHistorico = null;
 let limiteHistorico = 200;              // quantas alterações carregar da nuvem
@@ -1203,6 +1218,50 @@ function alternarAdmin(){
   const aberto = abrirPainelExclusivo("painelAdmin");
   const bu = document.getElementById("btnUsuarios");
   if (bu) bu.classList.toggle("ativo", aberto);
+  if (aberto) renderAdminUsuarios();
+}
+
+/* Lista de usuários cadastrados: perfis salvos + quem já aparece no histórico */
+function renderAdminUsuarios(){
+  const cont = document.getElementById("listaUsuarios");
+  if (!cont) return;
+  const mapa = {};
+  Object.keys(perfisDocs || {}).forEach(e => { mapa[e] = perfisDocs[e]; });
+  (historico || []).forEach(h => {
+    const e = String(h.usuario || "").trim().toLowerCase();
+    if (e && e.indexOf("@") > 0 && !(e in mapa)) mapa[e] = perfis[e] || "";
+  });
+  const emails = Object.keys(mapa).sort();
+  if (!emails.length){
+    cont.innerHTML = '<p class="nota-dash">Os usuários aparecem aqui ao serem criados por este painel, ao salvarem o próprio nome ou ao fazerem a primeira alteração no app.</p>';
+    return;
+  }
+  const asp = s => String(s).replace(/'/g,"\\'");
+  const attr = s => String(s).replace(/"/g,'&quot;');
+  let html = '';
+  emails.forEach(e => {
+    const ehAdmin = ADMINS.includes(e);
+    html += '<div class="usr-item"><span class="usr-email">' + e +
+      (ehAdmin ? ' <span class="usr-tag">admin</span>' : '') + '</span>' +
+      '<input maxlength="40" value="' + attr(mapa[e] || '') + '" placeholder="Sem nome definido" ' +
+      'onchange="salvarNomeUsuario(\'' + asp(e) + '\', this.value)">' +
+      '<button class="btn-claro" title="Envia um e-mail para o usuário escolher uma senha nova" ' +
+      'onclick="enviarResetUsuario(\'' + asp(e) + '\')">🔑 Trocar senha</button></div>';
+  });
+  cont.innerHTML = html;
+}
+
+function salvarNomeUsuario(email, valor){
+  const nome = String(valor || "").trim();
+  colPerfis.doc(email).set({ nome, email }, { merge: true })
+    .then(()=> avisoAdmin("msgAdminLista", 'Nome de ' + email + ' salvo' + (nome ? ': "' + nome + '".' : ' (ficou sem nome).'), "ok"))
+    .catch(e => avisoAdmin("msgAdminLista", msgErro(e), "erro"));
+}
+
+function enviarResetUsuario(email){
+  auth.sendPasswordResetEmail(email)
+    .then(()=> avisoAdmin("msgAdminLista", "Link de troca de senha enviado para " + email + ".", "ok"))
+    .catch(e => avisoAdmin("msgAdminLista", msgErro(e), "erro"));
 }
 
 function avisoAdmin(id, texto, tipo){
@@ -1212,17 +1271,21 @@ function avisoAdmin(id, texto, tipo){
 }
 
 function criarUsuario(){
-  const email = document.getElementById("novoUsuarioEmail").value.trim();
+  const nome  = document.getElementById("novoUsuarioNome").value.trim();
+  const email = document.getElementById("novoUsuarioEmail").value.trim().toLowerCase();
   const senha = document.getElementById("novoUsuarioSenha").value;
   if(!email || !senha){ avisoAdmin("msgAdmin", "Preencha e-mail e senha inicial.", "erro"); return; }
   // App secundário: cria o usuário sem derrubar a sessão do administrador
   const sec = firebase.apps.find(a => a.name === "secundario") || firebase.initializeApp(firebaseConfig, "secundario");
   sec.auth().createUserWithEmailAndPassword(email, senha)
+    .then(()=> sec.auth().signOut())
+    .then(()=> nome ? colPerfis.doc(email).set({ nome, email }, { merge:true }).catch(()=>{}) : null)
     .then(()=>{
-      sec.auth().signOut();
+      document.getElementById("novoUsuarioNome").value = "";
       document.getElementById("novoUsuarioEmail").value = "";
       document.getElementById("novoUsuarioSenha").value = "";
-      avisoAdmin("msgAdmin", "Usuário " + email + " criado! Passe a senha inicial para ele — no primeiro acesso, ele pode trocá-la em \"Esqueci minha senha\".", "ok");
+      avisoAdmin("msgAdmin", "Usuário " + (nome ? nome + " (" + email + ")" : email) + " criado! Passe a senha inicial para ele — no primeiro acesso, ele pode trocá-la em \"Esqueci minha senha\".", "ok");
+      renderAdminUsuarios();
     })
     .catch(e => avisoAdmin("msgAdmin", msgErro(e), "erro"));
 }
@@ -1488,9 +1551,16 @@ function iniciarSync(){
   assinarHistorico();
   // Perfis (nome amigável de cada usuário)
   escutaPerfis = colPerfis.onSnapshot(snap => {
-    const mapa = {};
-    snap.forEach(doc => { const d = doc.data() || {}; if (d.nome) mapa[doc.id.toLowerCase()] = d.nome; });
+    const mapa = {}, docs = {};
+    snap.forEach(doc => {
+      const d = doc.data() || {};
+      docs[doc.id.toLowerCase()] = d.nome || "";
+      if (d.nome) mapa[doc.id.toLowerCase()] = d.nome;
+    });
     perfis = mapa;
+    perfisDocs = docs;
+    const pAdm = document.getElementById("painelAdmin");
+    if (pAdm && pAdm.classList.contains("aberto")) renderAdminUsuarios();
     // atualizar o nome do próprio usuário logado
     nomeUsuario = perfis[(usuarioAtual||"").toLowerCase()] || "";
     const cn = document.getElementById("meuNome");
