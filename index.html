@@ -3111,7 +3111,7 @@ function renderPetrosResumo(){
   ordem.forEach(n => {
     const d = (p.conveniencias||{})[n]; if (!d) return;
     html += '<div class="pet-card"><h4>'+rotulo(n)+'</h4><div class="pet-linhas">' +
-      '<div class="pet-l"><span>Outros (vendas)</span><b>R$ '+fmtBR(d.outros||0,2)+'</b></div>' +
+      '<div class="pet-l"><span>Vendas</span><b>R$ '+fmtBR(d.outros||0,2)+'</b></div>' +
       '<div class="pet-l"><span>Lucro Líquido</span><b>R$ '+fmtBR(d.lucroLiquido||0,2)+'</b></div>' +
       '</div></div>';
   });
