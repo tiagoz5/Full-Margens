@@ -21,6 +21,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 <style>
   :root{
     /* Identidade visual Postos Full */
@@ -733,6 +734,17 @@
     .filtros{grid-template-columns:repeat(6,1fr)}
     td input,td select{border:none;background:none}
   }
+
+  /* ===== Avisos push ===== */
+  .push-box{margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed var(--borda)}
+  #btnAtivarPush{width:100%;max-width:360px}
+  #btnAtivarPush.ativo{border-color:var(--verde);color:var(--verde)}
+  .push-status{margin-top:8px;min-height:1em}
+  .push-toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(120%);
+    background:var(--superficie-2);color:var(--txt);border:1px solid var(--borda);border-left:4px solid var(--laranja,#FF6401);
+    border-radius:10px;padding:12px 16px;max-width:90vw;box-shadow:0 6px 24px rgba(0,0,0,.3);
+    z-index:9999;opacity:0;transition:transform .3s,opacity .3s;font-size:.9rem}
+  .push-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 </style>
 </head>
 <body>
@@ -872,6 +884,10 @@
     <div class="grupo">
       <h2>Notificações</h2>
       <p class="nota-dash">Avisos importantes vindos das agendas Google dos postos (vencimento de certificados, licenças, prazos...). Sincronizam automaticamente todo dia; para atualizar agora, peça ao Claude: "sincroniza as notificações".</p>
+      <div class="push-box">
+        <button class="btn-claro" id="btnAtivarPush" onclick="ativarAvisosPush()">🔔 Ativar avisos neste aparelho</button>
+        <p class="push-status nota-dash" id="pushStatus"></p>
+      </div>
       <div id="conteudoAvisos"></div>
     </div>
   </div>
@@ -1052,6 +1068,85 @@ let escutaPetros = null;
 let petrosResumo = null;           // resumo do Petros sincronizado da nuvem
 let escutaAvisos = null;
 let avisosDia = null;              // notificações das agendas sincronizadas da nuvem
+
+/* ================== Avisos push (Firebase Cloud Messaging) ================== */
+const VAPID_PUSH = "BD3M5m7ymG6lkC-MwDf7ZxDHcdmQbpr6lqlTFHwOAagTez92mfkXEElqX3R0klbA4ZNqLDJ2Nny2wA3xZDPY7e0";
+const colPushTokens = db.collection("pushTokens");   // aparelhos registrados para receber avisos
+let messaging = null;
+try {
+  if (firebase.messaging && ("serviceWorker" in navigator) && ("PushManager" in window)) {
+    messaging = firebase.messaging();
+    messaging.onMessage(payload => {
+      const n = (payload && payload.notification) || (payload && payload.data) || {};
+      mostrarToastPush(n.title || "Postos Full", n.body || "");
+    });
+  }
+} catch (e) { messaging = null; }
+
+function pushSuportado(){ return !!messaging; }
+
+function atualizarBotaoPush(){
+  const b = document.getElementById("btnAtivarPush");
+  const st = document.getElementById("pushStatus");
+  if (!b) return;
+  if (!pushSuportado()){
+    b.style.display = "none";
+    if (st) st.textContent = "Este navegador não suporta avisos push. No iPhone, instale o app na tela inicial (Compartilhar → Adicionar à Tela de Início, iOS 16.4+) e abra por ele.";
+    return;
+  }
+  b.style.display = "";
+  const perm = (typeof Notification !== "undefined") ? Notification.permission : "default";
+  if (perm === "granted"){
+    b.textContent = "🔔 Avisos ativados neste aparelho ✓";
+    b.classList.add("ativo");
+  } else if (perm === "denied"){
+    b.textContent = "🔔 Ativar avisos";
+    b.classList.remove("ativo");
+    if (st && !st.textContent) st.textContent = "Os avisos estão bloqueados nas configurações do navegador/aparelho. Libere as notificações para este site e toque de novo.";
+  } else {
+    b.textContent = "🔔 Ativar avisos neste aparelho";
+    b.classList.remove("ativo");
+  }
+}
+
+async function ativarAvisosPush(){
+  const st = document.getElementById("pushStatus");
+  if (!pushSuportado()){ atualizarBotaoPush(); return; }
+  if (st) st.textContent = "Pedindo permissão...";
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted"){
+      if (st) st.textContent = "Permissão não concedida. Você pode liberar as notificações nas configurações do navegador e tentar de novo.";
+      atualizarBotaoPush();
+      return;
+    }
+    const token = await messaging.getToken({ vapidKey: VAPID_PUSH });
+    if (!token){
+      if (st) st.textContent = "Não consegui registrar este aparelho agora. Tente novamente em instantes.";
+      return;
+    }
+    const id = token.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 200);
+    await colPushTokens.doc(id).set({
+      token,
+      email: usuarioAtual || (auth.currentUser && auth.currentUser.email) || "",
+      plataforma: navigator.userAgent,
+      atualizadoEm: new Date().toISOString()
+    });
+    if (st) st.textContent = "✅ Pronto! Este aparelho vai receber os avisos.";
+    atualizarBotaoPush();
+  } catch (e) {
+    if (st) st.textContent = "Não deu para ativar agora: " + ((e && e.message) ? e.message : e);
+  }
+}
+
+function mostrarToastPush(titulo, corpo){
+  let t = document.getElementById("pushToast");
+  if (!t){ t = document.createElement("div"); t.id = "pushToast"; t.className = "push-toast"; document.body.appendChild(t); }
+  t.innerHTML = "<b>" + (titulo || "") + "</b>" + (corpo ? "<br>" + corpo : "");
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("show"), 6000);
+}
 
 /* E-mails com acesso ao painel de usuários */
 const ADMINS = ["tiago.z5@gmail.com"];
@@ -2064,7 +2159,7 @@ function alternarAvisos(){
   const aberto = abrirPainelExclusivo("painelAvisos");
   const b = document.getElementById("btnAvisos");
   if (b) b.classList.toggle("ativo", aberto);
-  if (aberto) renderAvisos();
+  if (aberto){ renderAvisos(); atualizarBotaoPush(); }
 }
 function diasAte(iso){
   const d1 = new Date(hojeISO()+"T00:00:00");
