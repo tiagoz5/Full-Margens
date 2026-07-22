@@ -742,11 +742,28 @@
   .comp-preco-row input{max-width:120px;text-align:right}
   .cot-preco-campo{display:flex;align-items:center;gap:6px;flex:0 0 auto;justify-content:flex-end}
   .cot-preco-campo input{width:110px;max-width:110px;flex:0 0 auto;text-align:right}
-  #conteudoCotacoes .comp-preco-row{flex-wrap:wrap}
-  .cot-delta{flex-basis:100%;text-align:right;font-size:.7rem;font-weight:700;margin:-1px 0 3px;line-height:1.2}
+  .cot-fuel{margin-bottom:2px}
+  .cot-fuel .comp-preco-row{flex-wrap:nowrap;align-items:flex-start}
+  .cot-fnome{min-width:0;overflow-wrap:anywhere}
+  .cot-delta{text-align:right;font-size:.7rem;font-weight:700;margin:0 0 4px;line-height:1.2}
   .cot-delta.subiu{color:var(--vermelho)}
   .cot-delta.desceu{color:var(--verde)}
   .cot-delta.igual{color:var(--cinza);font-weight:600}
+  /* Resumo do dia + compartilhar */
+  .cot-resumo{margin-top:18px;border:1px solid var(--borda);border-radius:12px;padding:14px 16px;background:var(--superficie-2)}
+  .cot-resumo-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .cot-share{background:#25D366;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap}
+  .cot-share:hover{filter:brightness(1.08)}
+  .cot-res-dist{margin-bottom:12px}
+  .cot-res-dist>b{font-size:.9rem;color:var(--txt)}
+  .cot-res-item{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:.82rem;padding:4px 0;border-bottom:1px dashed var(--borda)}
+  .cot-res-item .rc-nome{flex:1 1 auto;color:var(--txt);min-width:0}
+  .cot-res-item .rc-val{font-weight:700;color:var(--txt);white-space:nowrap}
+  .cot-res-item .rc-delta{font-size:.72rem;font-weight:700;min-width:70px;text-align:right;white-space:nowrap}
+  .cot-res-item .rc-delta.subiu{color:var(--vermelho)}
+  .cot-res-item .rc-delta.desceu{color:var(--verde)}
+  .cot-res-item .rc-delta.igual{color:var(--cinza)}
+  .cot-res-item .rc-delta.novo{color:var(--verde)}
   .cot-undo{background:transparent;border:1px solid var(--borda);color:var(--cinza);border-radius:6px;padding:6px 0;width:34px;text-align:center;cursor:pointer;font-size:.85rem;line-height:1;flex:0 0 auto}
   .cot-undo:hover{color:var(--verde);border-color:var(--verde)}
   .cot-undo.oculto{visibility:hidden;pointer-events:none}
@@ -2534,10 +2551,9 @@ function carregarHistoricoAnterior(dataSel){
   // o valor do registro mais recente (o "último dia com registro")
   cotHistorico = {};
   try {
-    const FP = firebase.firestore.FieldPath.documentId();
-    db.collection("cotacoes").orderBy(FP, "desc").where(FP, "<", dataSel).limit(160).get().then(snap => {
+    db.collection("cotacoes").where("data", "<", dataSel).orderBy("data", "desc").limit(120).get().then(snap => {
       snap.forEach(doc => {
-        const dt = doc.id; const d = doc.data() || {};
+        const d = doc.data() || {}; const dt = d.data || doc.id;
         const dists = d.dists || {};
         Object.keys(dists).forEach(nome => {
           const precos = (dists[nome] && dists[nome].precos) || {};
@@ -2599,12 +2615,14 @@ function renderCotacoes(){
       if (/podium/i.test(c) && !cotMostraPodium(nome)) return;
       const p = precos[c] || 0;
       const temDesfazer = cotAnterior[nome] && (cotAnterior[nome][c] !== undefined);
-      html += '<div class="comp-preco-row"><span>'+c+'</span>' +
-        '<span class="cot-preco-campo">' +
-          '<input type="text" inputmode="decimal" value="'+fmtPrecoComp(p)+'" placeholder="0,00" ' +
-            'onchange="setPrecoCotacao(\''+escAspas(nome)+'\', \''+escAspas(c)+'\', this.value)">' +
-          '<button class="cot-undo'+(temDesfazer?'':' oculto')+'" title="Desfazer este preço (voltar ao anterior)" onclick="voltarPreco(\''+escAspas(nome)+'\', \''+escAspas(c)+'\')">↩</button>' +
-        '</span>' +
+      html += '<div class="cot-fuel">' +
+        '<div class="comp-preco-row"><span class="cot-fnome">'+c+'</span>' +
+          '<span class="cot-preco-campo">' +
+            '<input type="text" inputmode="decimal" value="'+fmtPrecoComp(p)+'" placeholder="0,00" ' +
+              'onchange="setPrecoCotacao(\''+escAspas(nome)+'\', \''+escAspas(c)+'\', this.value)">' +
+            '<button class="cot-undo'+(temDesfazer?'':' oculto')+'" title="Desfazer este preço (voltar ao anterior)" onclick="voltarPreco(\''+escAspas(nome)+'\', \''+escAspas(c)+'\')">↩</button>' +
+          '</span>' +
+        '</div>' +
         cotDeltaHtml(nome, c, p) +
       '</div>';
     });
@@ -2615,12 +2633,81 @@ function renderCotacoes(){
     html += '</div>';
   });
   html += '</div>';
+  html += resumoCotHtml();
   html += '<p class="nota-dash" style="margin-top:14px">' +
     (ehHoje
       ? 'Os preços são salvos na nuvem automaticamente ao sair do campo. Errou uma digitação? Toque no ↩ ao lado daquele preço para voltar ao valor anterior. Para conferir outro dia, escolha a data acima.'
       : 'Você está vendo (e editando) as cotações de <b>'+fmtDataCurta(cotDataSel)+'</b>. As mudanças são salvas automaticamente; o ↩ ao lado de cada preço desfaz aquela digitação.') +
     '</p>';
   cont.innerHTML = html;
+}
+// Monta as linhas do resumo (todos os preços preenchidos do dia + variação vs. último registro)
+function resumoCotLinhas(){
+  const combustiveis = opcoesDe("combustivel");
+  const todasDists = opcoesDe("distribuidora");
+  const dists = todasDists.filter(n => String(n).toLowerCase() === "vibra")
+    .concat(todasDists.filter(n => String(n).toLowerCase() !== "vibra"));
+  const grupos = [];
+  dists.forEach(nome => {
+    const precos = ((cotEdit.dists||{})[nome] || {}).precos || {};
+    const itens = [];
+    combustiveis.forEach(c => {
+      if (/podium/i.test(c) && !cotMostraPodium(nome)) return;
+      const v = precos[c] || 0;
+      if (v > 0){
+        const prev = (cotHistorico[nome] && cotHistorico[nome][c]) ? cotHistorico[nome][c] : null;
+        let dif = null, ref = null;
+        if (prev){ dif = Math.round((v - prev.valor) * 10000) / 10000; ref = fmtDataCurta(prev.data).slice(0,5); }
+        itens.push({ comb:c, valor:v, dif:dif, ref:ref });
+      }
+    });
+    if (itens.length) grupos.push({ dist:nome, itens:itens });
+  });
+  return grupos;
+}
+function resumoCotHtml(){
+  const grupos = resumoCotLinhas();
+  if (!grupos.length) return "";
+  let html = '<div class="cot-resumo"><div class="cot-resumo-head">' +
+    '<span class="comp-tit">📋 Resumo do dia — ' + fmtDataCurta(cotDataSel) + '</span>' +
+    '<button class="cot-share" onclick="compartilharResumoCot()">📲 Enviar no WhatsApp</button></div>';
+  grupos.forEach(g => {
+    html += '<div class="cot-res-dist"><b>' + g.dist + '</b>';
+    g.itens.forEach(it => {
+      let dh = '<span class="rc-delta novo">novo</span>';
+      if (it.dif !== null){
+        if (Math.abs(it.dif) < 0.00005) dh = '<span class="rc-delta igual">→ igual</span>';
+        else if (it.dif > 0) dh = '<span class="rc-delta subiu">▲ ' + fmtDelta(it.dif) + '</span>';
+        else dh = '<span class="rc-delta desceu">▼ ' + fmtDelta(it.dif) + '</span>';
+      }
+      html += '<div class="cot-res-item"><span class="rc-nome">' + it.comb + '</span>' +
+        '<span class="rc-val">R$ ' + fmtPrecoComp(it.valor) + '</span>' + dh + '</div>';
+    });
+    html += '</div>';
+  });
+  html += '<p class="nota-dash" style="margin:6px 0 0;font-size:.72rem">Variação em relação ao último dia com registro (última puxada de preços).</p>';
+  html += '</div>';
+  return html;
+}
+function compartilharResumoCot(){
+  const grupos = resumoCotLinhas();
+  const st = document.getElementById("cotStatus");
+  if (!grupos.length){ if (st){ st.textContent = "Nada preenchido para compartilhar."; st.className = "cot-status pend"; } return; }
+  let txt = '*Cotações Full — ' + fmtDataCurta(cotDataSel) + '*';
+  grupos.forEach(g => {
+    txt += '\n\n*' + g.dist + '*';
+    g.itens.forEach(it => {
+      let d = '';
+      if (it.dif !== null){
+        if (Math.abs(it.dif) < 0.00005) d = ' (igual)';
+        else if (it.dif > 0) d = ' (▲ +' + fmtDelta(it.dif) + ')';
+        else d = ' (▼ -' + fmtDelta(it.dif) + ')';
+      }
+      txt += '\n• ' + it.comb + ': R$ ' + fmtPrecoComp(it.valor) + d;
+    });
+  });
+  txt += '\n\n_Variação vs. último dia com registro._';
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
 }
 function persistirCotDia(){
   const data = cotDataSel || hojeISO();
