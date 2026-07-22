@@ -658,6 +658,10 @@
   .pv-item{display:flex;align-items:center;gap:8px;justify-content:space-between;border:1px solid var(--borda);border-radius:8px;padding:8px 11px;background:var(--superficie-2)}
   .pv-item label{font-size:.86rem;color:var(--txt);flex:1 1 auto}
   .pv-item input{width:104px;text-align:right;border:1px solid var(--borda);border-radius:6px;padding:7px;font-size:.9rem;background:var(--superficie);color:var(--txt)}
+  .pv-sync-tit{font-size:.82rem;font-weight:600;color:var(--cinza)}
+  .pv-sync{margin:6px 0 2px}
+  .pv-sync-ok{font-size:.82rem;color:var(--verde)}
+  .pv-sync-vazio{font-size:.82rem;color:var(--cinza)}
   .usr-item input[readonly]{background:transparent;border-color:transparent;color:var(--txt);opacity:.9;cursor:default;box-shadow:none}
   .usr-item.editando{box-shadow:0 0 0 2px var(--verde) inset;background:var(--verde-claro)}
   .usr-item .mot-campo{flex:1 1 190px;display:flex;min-width:0}
@@ -1235,8 +1239,9 @@
       </div>
     </div>
     <div class="grupo" id="grupoPrecosVenda">
-      <h2>Preços de venda (padrão)</h2>
-      <p class="nota-dash">Informe o preço de venda atual de cada combustível em cada unidade. Ele pré-preenche o "Valor por litro" no menu Descontos (podendo ser alterado na hora). Só o Posto Full - Teresina tem Gasolina Podium.</p>
+      <h2>Preços de Venda <span id="pvSyncTit" class="pv-sync-tit"></span></h2>
+      <p class="nota-dash">Estes preços são atualizados sozinhos a partir do Petros (Automação → Alteração de Preço Programado), de hora em hora no horário comercial. Eles pré-preenchem o "Valor por litro" no menu Descontos (podendo ser alterado na hora do lançamento). Se precisar, você também pode ajustar um valor manualmente aqui. Só o Posto Full - Teresina tem Gasolina Podium e o Diesel S10 Grid (aditivado); Caxias e Dutra têm o Diesel S-10 comum.</p>
+      <div class="pv-sync" id="pvSync"></div>
       <label class="cot-data-lbl">Unidade: <select id="pvPosto" onchange="renderPrecosVenda()"></select></label>
       <div id="pvCampos"></div>
       <div class="msg-admin" id="msgPrecosVenda"></div>
@@ -1366,7 +1371,7 @@ let escutaPuxadas = null;
 let descontos = [];                    // descontos do dia selecionado
 let escutaDescontos = null;
 let descDataSel = "";
-let precosVenda = { porPosto: {} };     // {porPosto:{posto:{comb:preco}}}
+let precosVenda = { porPosto: {}, atualizadoEm: "", por: "" };  // {porPosto:{posto:{comb:preco}}, atualizadoEm, por}
 let escutaPrecosVenda = null;
 let puxadas = [];                  // [{id, data, motoristaId, motorista, caminhao, distribuidora, valorNotas, valorFrete, fretePorLitro, litros}]
 
@@ -2180,7 +2185,7 @@ function iniciarSync(){
   // Preços de venda padrão por posto (pré-preenche o Descontos)
   escutaPrecosVenda = docPrecosVenda.onSnapshot(snap => {
     const d = snap.exists ? (snap.data() || {}) : {};
-    precosVenda = { porPosto: (d && d.porPosto) ? d.porPosto : {} };
+    precosVenda = { porPosto: (d && d.porPosto) ? d.porPosto : {}, atualizadoEm: (d && d.atualizadoEm) ? d.atualizadoEm : "", por: (d && d.por) ? d.por : "" };
     const pcv = document.getElementById("painelConfig");
     if (pcv && pcv.classList.contains("aberto")) renderPrecosVenda();
     const pdv = document.getElementById("painelDescontos");
@@ -3383,7 +3388,18 @@ function alternarDescontos(){
 }
 function postoTemPodium(posto){ return String(posto||"").toLowerCase().indexOf("teresina") >= 0; }
 function combustiveisDoPosto(posto){
-  return opcoesDe("combustivel").filter(c => !/podium/i.test(c) || postoTemPodium(posto));
+  // Teresina vende Podium e o Diesel S10 Grid (aditivado); Caxias e Dutra vendem Diesel S-10 e Diesel S-500.
+  if (postoTemPodium(posto))
+    return ["Gasolina Comum","Gasolina Aditivada","Gasolina Podium","Diesel S10 Grid","Etanol"];
+  return ["Gasolina Comum","Gasolina Aditivada","Diesel S-10","Diesel S-500","Etanol"];
+}
+function fmtQuandoISO(iso){
+  if (!iso) return "";
+  try {
+    const d = new Date(iso); if (isNaN(d.getTime())) return "";
+    const p = n => String(n).padStart(2,"0");
+    return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" às "+p(d.getHours())+":"+p(d.getMinutes());
+  } catch(_){ return ""; }
 }
 function popularSelectDescPosto(){
   const sel = document.getElementById("descPosto");
@@ -3416,6 +3432,13 @@ function autofillValorL(){
 function renderPrecosVenda(){
   const selP = document.getElementById("pvPosto");
   if (!selP) return;
+  const quando = fmtQuandoISO(precosVenda.atualizadoEm);
+  const tit = document.getElementById("pvSyncTit");
+  if (tit) tit.textContent = quando ? ("(até " + quando + ")") : "";
+  const sync = document.getElementById("pvSync");
+  if (sync) sync.innerHTML = quando
+    ? '<span class="pv-sync-ok">🔄 Última sincronização com o Petros: <b>' + escAttr(quando) + '</b>' + (precosVenda.por ? ' · ' + escAttr(precosVenda.por) : '') + '</span>'
+    : '<span class="pv-sync-vazio">Ainda sem sincronização automática — os valores abaixo podem ser informados manualmente.</span>';
   const postos = opcoesDe("posto");
   const atual = selP.value;
   selP.innerHTML = postos.map(p => '<option value="'+escAttr(p)+'">'+escAttr(p)+'</option>').join("");
@@ -3440,7 +3463,10 @@ function salvarPrecoVenda(posto, comb, val){
   if (!precosVenda.porPosto) precosVenda.porPosto = {};
   if (!precosVenda.porPosto[posto]) precosVenda.porPosto[posto] = {};
   if (v > 0) precosVenda.porPosto[posto][comb] = v; else delete precosVenda.porPosto[posto][comb];
-  docPrecosVenda.set({ porPosto: precosVenda.porPosto })
+  const agora = new Date().toISOString();
+  precosVenda.atualizadoEm = agora;
+  precosVenda.por = (usuarioAtual || "") + " (manual)";
+  docPrecosVenda.set({ porPosto: precosVenda.porPosto, atualizadoEm: agora, por: precosVenda.por })
     .then(() => avisoAdmin("msgPrecosVenda", "Preço de "+comb+" ("+posto+") salvo.", "ok"))
     .catch(e => avisoAdmin("msgPrecosVenda", msgErro(e), "erro"));
 }
