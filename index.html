@@ -724,6 +724,12 @@
   .usr-tag{font-size:.66rem;font-weight:700;text-transform:uppercase;color:var(--verde);border:1px solid var(--verde);border-radius:20px;padding:1px 8px}
   .usr-item input{flex:1 1 190px;border:1px solid var(--borda);border-radius:6px;padding:8px;font-size:.85rem;background:var(--superficie);color:var(--txt)}
   .usr-item .btn-claro{flex:0 0 auto;font-size:.8rem}
+  .usr-perm{border:1px solid var(--borda);border-top:none;border-radius:0 0 10px 10px;margin:-8px 0 2px;padding:12px 14px;background:var(--superficie)}
+  .usr-perm-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:.82rem;color:var(--txt)}
+  .usr-perm-reset{font-size:.74rem}
+  .usr-perm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px 14px}
+  .usr-perm-item{display:flex;align-items:center;gap:8px;font-size:.83rem;color:var(--txt);cursor:pointer;padding:3px 0}
+  .usr-perm-item input{flex:0 0 auto;width:16px;height:16px;cursor:pointer}
   .comp-zerar.zerar-confirma{color:var(--vermelho);border-color:var(--vermelho);font-weight:600}
   .comp-vol-item input,.comp-preco-row input,.comp-dist-nome{
     border:1px solid var(--borda);border-radius:6px;padding:8px;font-size:.9rem;
@@ -939,8 +945,8 @@
     <button class="btn-claro" id="btnCotacoes" onclick="alternarCotacoes()"><span class="mi">💲</span><span class="mt">Cotações do Dia</span></button>
     <button class="btn-claro" id="btnAvisos" onclick="alternarAvisos()"><span class="mi">🔔</span><span class="mt">Notificações</span><span class="menu-badge" id="badgeAvisos" style="display:none"></span></button>
     <button class="btn-claro" id="btnCalendario" onclick="alternarCalendario()"><span class="mi">📅</span><span class="mt">Calendário</span></button>
-    <button class="btn-claro" onclick="exportarPDF()"><span class="mi">📄</span><span class="mt">Exportar PDF</span></button>
-    <button class="btn-claro" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
+    <button class="btn-claro" id="btnPdf" onclick="exportarPDF()"><span class="mi">📄</span><span class="mt">Exportar PDF</span></button>
+    <button class="btn-claro" id="btnImprimir" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
     <button class="btn-claro" id="btnConfig" onclick="alternarConfig()"><span class="mi">⚙</span><span class="mt">Configurações</span></button>
     <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()"><span class="mi">👥</span><span class="mt">Usuários</span></button>
     <button class="btn-claro menu-tema" id="btnTema" onclick="alternarTema()"><span class="mi" id="temaIcone">🌙</span><span class="mt" id="temaLabel">Tema escuro</span></button>
@@ -1242,6 +1248,7 @@ const colLancamentos = db.collection("lancamentos");
 const docConfig = db.collection("config").doc("geral");
 const colHistorico = db.collection("historico");
 const colPerfis = db.collection("perfis");   // nome amigável por usuário (id do doc = e-mail)
+const docPermissoes = db.collection("config").doc("permissoes"); // {porUsuario:{email:{menuKey:bool}}} — quais menus cada usuário vê
 const docCotacoes = db.collection("config").doc("cotacoesDia");   // cotações do dia por distribuidora
 const docPetros = db.collection("config").doc("petrosResumo");    // resumo do Resultado no período (sistema Petros)
 const docAvisos = db.collection("config").doc("avisos");          // notificações vindas das agendas Google dos postos
@@ -1258,6 +1265,8 @@ let escutaHistorico = null;
 let limiteHistorico = 200;              // quantas alterações carregar da nuvem
 let todoHistoricoCarregado = false;     // true quando não há mais registros antigos
 let escutaPerfis = null;
+let permissoesTodos = {};              // {emailLower:{menuKey:bool}} sincronizado da nuvem
+let escutaPermissoes = null;
 let nuvemPronta = false;        // já recebemos o primeiro retrato da nuvem?
 let escutaLancamentos = null;   // cancelador do listener em tempo real
 let escutaConfig = null;
@@ -1582,13 +1591,14 @@ function aoMudarLogin(usuario){
     document.getElementById("btnUsuarios").style.display = ehAdmin ? "" : "none";
     iniciarSync();
     render();
-    if (empresa === "transportadora") abrirComparativoInicial();   // empresa da transportadora
-    else abrirDashboardInicial();   // garante o Dashboard aberto (sem alternar)
+    aplicarVisibilidadeMenus();
+    abrirPainelInicial();
     setTimeout(() => { registrarTokenSePermitido(); talvezPerguntarPush(); }, 1500);
   } else {
     if (escutaLancamentos){ escutaLancamentos(); escutaLancamentos = null; }
     if (escutaConfig){ escutaConfig(); escutaConfig = null; }
     if (escutaPerfis){ escutaPerfis(); escutaPerfis = null; }
+    if (escutaPermissoes){ escutaPermissoes(); escutaPermissoes = null; }
     if (escutaCotacoes){ escutaCotacoes(); escutaCotacoes = null; }
     if (escutaPetros){ escutaPetros(); escutaPetros = null; }
     if (escutaAvisos){ escutaAvisos(); escutaAvisos = null; }
@@ -1628,14 +1638,56 @@ function renderAdminUsuarios(){
   let html = '';
   emails.forEach(e => {
     const ehAdmin = ADMINS.includes(e);
+    const idSafe = e.replace(/[^a-z0-9]/gi,'_');
     html += '<div class="usr-item"><span class="usr-email">' + e +
       (ehAdmin ? ' <span class="usr-tag">admin</span>' : '') + '</span>' +
       '<input maxlength="40" value="' + attr(mapa[e] || '') + '" placeholder="Sem nome definido" ' +
       'onchange="salvarNomeUsuario(\'' + asp(e) + '\', this.value)">' +
       '<button class="btn-claro" title="Envia um e-mail para o usuário escolher uma senha nova" ' +
-      'onclick="enviarResetUsuario(\'' + asp(e) + '\')">🔑 Trocar senha</button></div>';
+      'onclick="enviarResetUsuario(\'' + asp(e) + '\')">🔑 Trocar senha</button>' +
+      (ehAdmin ? '' : '<button class="btn-claro usr-perm-btn" onclick="alternarPermUsuario(\'' + asp(e) + '\')">🔒 Menus</button>') +
+      '</div>';
+    if (!ehAdmin){
+      const perm = permissoesTodos[e] || null;   // null = vê tudo
+      html += '<div class="usr-perm" id="perm_' + idSafe + '" style="display:none">';
+      html += '<div class="usr-perm-top"><span>Menus que <b>' + (mapa[e] || e) + '</b> pode ver:</span>' +
+        '<button class="btn-claro usr-perm-reset" onclick="liberarTudoUsuario(\'' + asp(e) + '\')">Liberar tudo</button></div>';
+      html += '<div class="usr-perm-grid">';
+      MENUS_APP.forEach(m => {
+        const marcado = perm ? (perm[m.key] === true) : true;
+        html += '<label class="usr-perm-item"><input type="checkbox" ' + (marcado ? 'checked' : '') +
+          ' onchange="setPermUsuario(\'' + asp(e) + '\', \'' + m.key + '\', this.checked)"> ' + m.nome + '</label>';
+      });
+      html += '</div>';
+      html += '<p class="nota-dash" style="margin:6px 0 0;font-size:.7rem">O administrador vê tudo. Alterações valem quando o usuário recarregar o app.</p>';
+      html += '</div>';
+    }
   });
   cont.innerHTML = html;
+}
+function alternarPermUsuario(email){
+  const idSafe = String(email).replace(/[^a-z0-9]/gi,'_');
+  const el = document.getElementById("perm_" + idSafe);
+  if (el) el.style.display = (el.style.display === "none") ? "" : "none";
+}
+function setPermUsuario(email, key, marcado){
+  email = String(email).toLowerCase();
+  let perm = Object.assign({}, permissoesTodos[email] || {});
+  if (!permissoesTodos[email]){ MENUS_APP.forEach(m => { perm[m.key] = true; }); } // não existia = tudo liberado
+  perm[key] = !!marcado;
+  permissoesTodos[email] = perm;   // otimista
+  docPermissoes.set({ porUsuario: permissoesTodos })
+    .then(()=> avisoAdmin("msgAdminLista", "Permissões de " + email + " salvas.", "ok"))
+    .catch(er => avisoAdmin("msgAdminLista", msgErro(er), "erro"));
+  aplicarVisibilidadeMenus();
+}
+function liberarTudoUsuario(email){
+  email = String(email).toLowerCase();
+  delete permissoesTodos[email];   // sem regra = vê tudo
+  docPermissoes.set({ porUsuario: permissoesTodos })
+    .then(()=> { avisoAdmin("msgAdminLista", email + " voltou a ver todos os menus.", "ok"); renderAdminUsuarios(); })
+    .catch(er => avisoAdmin("msgAdminLista", msgErro(er), "erro"));
+  aplicarVisibilidadeMenus();
 }
 
 function salvarNomeUsuario(email, valor){
@@ -1983,6 +2035,18 @@ function iniciarSync(){
     if (ph && ph.classList.contains("aberto")) renderHistorico();
   }, ()=>{});
 
+  // Permissões de menus por usuário
+  escutaPermissoes = docPermissoes.onSnapshot(snap => {
+    const d = snap.exists ? (snap.data() || {}) : {};
+    const bruto = (d && d.porUsuario) ? d.porUsuario : {};
+    const norm = {}; Object.keys(bruto).forEach(k => { norm[String(k).toLowerCase()] = bruto[k]; });
+    permissoesTodos = norm;
+    aplicarVisibilidadeMenus();
+    garantirPainelPermitido();
+    const pAdm = document.getElementById("painelAdmin");
+    if (pAdm && pAdm.classList.contains("aberto")) renderAdminUsuarios();
+  }, ()=>{});
+
   // Configurações compartilhadas
   escutaConfig = docConfig.onSnapshot(snap => {
     if (snap.exists){
@@ -2302,25 +2366,72 @@ function fecharMenuLateral(){
 /* ===================== Seletor de empresa ===================== */
 let empresa = "postos";
 const CHAVE_EMPRESA = "margens_empresa";
-const MENU_SO_POSTOS = ["btnDash","btnRegistros","btnHistorico","btnSimular"];
-const MENU_SO_TRANSP = ["btnComparativo","btnCotacoes","btnPuxadas"];
+// Registro central dos menus (para empresa + permissões por usuário)
+const MENUS_APP = [
+  {key:"dash",        btn:"btnDash",        pan:"painelDash",        emp:"postos", nome:"Dashboard"},
+  {key:"registros",   btn:"btnRegistros",   pan:"painelRegistros",   emp:"postos", nome:"Lançamentos"},
+  {key:"historico",   btn:"btnHistorico",   pan:"painelHistorico",   emp:"postos", nome:"Histórico"},
+  {key:"simular",     btn:"btnSimular",     pan:"painelSimular",     emp:"postos", nome:"Simular Margens"},
+  {key:"comparativo", btn:"btnComparativo", pan:"painelComparativo", emp:"transp", nome:"Comparativo de Preços"},
+  {key:"cotacoes",    btn:"btnCotacoes",    pan:"painelCotacoes",    emp:"transp", nome:"Cotações do Dia"},
+  {key:"puxadas",     btn:"btnPuxadas",     pan:"painelPuxadas",     emp:"transp", nome:"Puxadas"},
+  {key:"avisos",      btn:"btnAvisos",      pan:"painelAvisos",      emp:"ambos",  nome:"Notificações"},
+  {key:"calendario",  btn:"btnCalendario",  pan:"painelCalendario",  emp:"ambos",  nome:"Calendário"},
+  {key:"pdf",         btn:"btnPdf",         pan:null,                emp:"ambos",  nome:"Exportar PDF"},
+  {key:"imprimir",    btn:"btnImprimir",    pan:null,                emp:"ambos",  nome:"Imprimir"},
+  {key:"config",      btn:"btnConfig",      pan:"painelConfig",      emp:"ambos",  nome:"Configurações"}
+];
+function ehAdminAtual(){ return (typeof ADMINS!=="undefined") && ADMINS.includes((usuarioAtual||"").toLowerCase()); }
+// Um menu é permitido se: usuário é admin, OU não há regra p/ ele (vê tudo), OU a regra marca true
+function menuPermitido(key){
+  if (ehAdminAtual()) return true;
+  const perm = permissoesTodos[(usuarioAtual||"").toLowerCase()];
+  if (!perm) return true;
+  return perm[key] === true;
+}
+function menuVisivelEmpresa(m, ehTransp){
+  return m.emp === "ambos" || (m.emp === "postos" && !ehTransp) || (m.emp === "transp" && ehTransp);
+}
+function aplicarVisibilidadeMenus(){
+  const ehTransp = empresa === "transportadora";
+  MENUS_APP.forEach(m => {
+    const b = document.getElementById(m.btn);
+    if (!b) return;
+    b.style.display = (menuVisivelEmpresa(m, ehTransp) && menuPermitido(m.key)) ? "" : "none";
+  });
+  const gm = document.getElementById("grupoMotoristas"); if (gm) gm.style.display = ehTransp ? "" : "none";
+}
+// Abre o primeiro menu (com painel) permitido da empresa atual
+function abrirPrimeiroPermitido(){
+  const ehTransp = empresa === "transportadora";
+  const cand = MENUS_APP.filter(m => m.pan && menuVisivelEmpresa(m, ehTransp) && menuPermitido(m.key));
+  if (cand.length){ const b = document.getElementById(cand[0].btn); if (b){ b.click(); return true; } }
+  fecharTodosPaineis();
+  return false;
+}
+function abrirPainelInicial(){
+  const ehTransp = empresa === "transportadora";
+  if (ehTransp && menuPermitido("comparativo")){ abrirComparativoInicial(); return; }
+  if (!ehTransp && menuPermitido("dash")){ abrirDashboardInicial(); return; }
+  abrirPrimeiroPermitido();
+}
+// Se o painel aberto não for mais permitido, troca para um permitido
+function garantirPainelPermitido(){
+  if (ehAdminAtual()) return;
+  const aberta = MENUS_APP.find(m => m.pan && document.getElementById(m.pan) && document.getElementById(m.pan).classList.contains("aberto"));
+  if (aberta && !menuPermitido(aberta.key)) abrirPainelInicial();
+}
 
 function aplicarEmpresa(trocarPainel){
   const ehTransp = empresa === "transportadora";
   document.body.classList.toggle("empresa-transportadora", ehTransp);
   const nome = document.getElementById("empresaNome");
   if (nome) nome.textContent = ehTransp ? "Full Transportadora" : "Postos Full";
-  // Mostra/esconde os menus exclusivos de cada empresa (os demais são compartilhados)
-  MENU_SO_POSTOS.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = ehTransp ? "none" : ""; });
-  MENU_SO_TRANSP.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = ehTransp ? "" : "none"; });
-  const gm = document.getElementById("grupoMotoristas"); if (gm) gm.style.display = ehTransp ? "" : "none";
+  aplicarVisibilidadeMenus();
   // Destaca a opção ativa dentro da caixa
   const box = document.getElementById("empresaBox");
   if (box) box.querySelectorAll("button").forEach(b => b.classList.toggle("ativo", (b.getAttribute("onclick")||"").indexOf("'"+empresa+"'") >= 0));
-  if (trocarPainel){
-    if (ehTransp) abrirComparativoInicial();
-    else abrirDashboardInicial();
-  }
+  if (trocarPainel){ abrirPainelInicial(); }
 }
 
 function definirEmpresa(nova){
