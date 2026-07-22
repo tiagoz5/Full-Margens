@@ -1240,7 +1240,7 @@
     </div>
     <div class="grupo" id="grupoPrecosVenda">
       <h2>Preços de Venda <span id="pvSyncTit" class="pv-sync-tit"></span></h2>
-      <p class="nota-dash">Estes preços são atualizados sozinhos a partir do Petros (Automação → Alteração de Preço Programado), de hora em hora no horário comercial. Eles pré-preenchem o "Valor por litro" no menu Descontos (podendo ser alterado na hora do lançamento). Se precisar, você também pode ajustar um valor manualmente aqui. Só o Posto Full - Teresina tem Gasolina Podium e o Diesel S10 Grid (aditivado); Caxias e Dutra têm o Diesel S-10 comum.</p>
+      <p class="nota-dash">Estes preços são atualizados sozinhos a partir do Petros (Automação → Alteração de Preço Programado), de hora em hora no horário comercial. Eles pré-preenchem o "Valor por litro" no menu Descontos (podendo ser alterado na hora do lançamento). Se precisar, você também pode ajustar um valor manualmente aqui. Só o Posto Full - Teresina tem Gasolina Podium e o Diesel S10 Grid (aditivado); Caxias e Dutra têm o Diesel S10 comum.</p>
       <div class="pv-sync" id="pvSync"></div>
       <label class="cot-data-lbl">Unidade: <select id="pvPosto" onchange="renderPrecosVenda()"></select></label>
       <div id="pvCampos"></div>
@@ -1831,7 +1831,7 @@ function resetUsuario(){
    gerenciáveis pelo painel ⚙ Configurações e ficam salvas.      */
 const OPCOES = {
   forma:        ["Á Vista","Prazo"],
-  combustivel:  ["Gasolina Comum","Gasolina Aditivada","Gasolina Podium","Diesel S-10","Diesel S-500","Etanol"]
+  combustivel:  ["Gasolina Comum","Gasolina Aditivada","Gasolina Podium","Diesel S10","Diesel S-500","Etanol"]
 };
 
 const CHAVE_LISTAS = "margens_combustiveis_listas";
@@ -1972,7 +1972,7 @@ try {
 
 if (!Array.isArray(registros) || !registros.length) {
   registros = [
-    { data:"2026-07-16", posto:"Dutra", forma:"Á Vista", combustivel:"Diesel S-10",
+    { data:"2026-07-16", posto:"Dutra", forma:"Á Vista", combustivel:"Diesel S10",
       custo:6.10, frete:0.20, venda:6.67, distribuidora:"Petrobahia" }
   ];
 }
@@ -3388,10 +3388,10 @@ function alternarDescontos(){
 }
 function postoTemPodium(posto){ return String(posto||"").toLowerCase().indexOf("teresina") >= 0; }
 function combustiveisDoPosto(posto){
-  // Teresina vende Podium e o Diesel S10 Grid (aditivado); Caxias e Dutra vendem Diesel S-10 e Diesel S-500.
+  // Teresina vende Podium e o Diesel S10 Grid (aditivado); Caxias e Dutra vendem Diesel S10 e Diesel S-500.
   if (postoTemPodium(posto))
     return ["Gasolina Comum","Gasolina Aditivada","Gasolina Podium","Diesel S10 Grid","Etanol"];
-  return ["Gasolina Comum","Gasolina Aditivada","Diesel S-10","Diesel S-500","Etanol"];
+  return ["Gasolina Comum","Gasolina Aditivada","Diesel S10","Diesel S-500","Etanol"];
 }
 function fmtQuandoISO(iso){
   if (!iso) return "";
