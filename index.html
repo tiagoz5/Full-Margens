@@ -770,9 +770,12 @@
   .cot-res-item .rc-delta.desceu{color:var(--verde)}
   .cot-res-item .rc-delta.igual{color:var(--cinza)}
   .cot-res-item .rc-delta.novo{color:var(--verde)}
-  .cot-undo{background:transparent;border:1px solid var(--borda);color:var(--cinza);border-radius:6px;padding:6px 0;width:34px;text-align:center;cursor:pointer;font-size:.85rem;line-height:1;flex:0 0 auto}
-  .cot-undo:hover{color:var(--verde);border-color:var(--verde)}
-  .cot-undo.oculto{visibility:hidden;pointer-events:none}
+  .cot-btn{background:transparent;border:1px solid var(--borda);color:var(--cinza);border-radius:6px;padding:6px 0;width:34px;text-align:center;cursor:pointer;font-size:.9rem;line-height:1;flex:0 0 auto}
+  .cot-btn:hover{border-color:var(--verde);color:var(--verde)}
+  .cot-ok{color:var(--verde);border-color:var(--verde)}
+  .cot-ok:hover{background:var(--verde);color:#fff}
+  .cot-cancel:hover{color:var(--vermelho);border-color:var(--vermelho)}
+  input.cot-lock{background:var(--superficie-2);cursor:default;color:var(--txt);opacity:.92}
   .comp-add{margin-top:12px}
   .comp-melhor{border:2px solid var(--verde);border-radius:12px;padding:14px 16px;background:var(--verde-claro);margin-bottom:16px}
   .comp-melhor-tag{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--verde)}
@@ -1275,7 +1278,7 @@ let cotacoesDia = { dists: {} };   // cotações de HOJE sincronizadas da nuvem 
 let cotEdit = { dists: {} };       // buffer editável do dia selecionado
 let cotDataSel = "";               // dia selecionado (YYYY-MM-DD)
 let cotDirty = false;              // (não usado — auto-save de volta)
-let cotAnterior = {};              // valor anterior de cada preço, para o botão desfazer
+let cotEditando = {};              // {dist:{comb:true}} — campos em modo de edição (travados até Confirmar)
 let cotHistorico = {};             // último registro ANTERIOR de cada dist/comb {dist:{comb:{valor,data}}} p/ mostrar a variação
 let escutaPetros = null;
 let petrosResumo = null;           // resumo do Petros sincronizado da nuvem
@@ -2636,7 +2639,7 @@ function voltarCotacoes(){
 function carregarCotDia(){
   const dt = document.getElementById("cotData");
   const novaData = (dt && dt.value) || hojeISO();
-  if (novaData !== cotDataSel) cotAnterior = {};   // trocou de dia → limpa o desfazer
+  if (novaData !== cotDataSel) cotEditando = {};   // trocou de dia → nada em edição
   cotDataSel = novaData;
   const st = document.getElementById("cotStatus");
   if (st){ st.textContent = ""; st.className = "cot-status"; }
@@ -2729,15 +2732,32 @@ function renderCotacoes(){
       // Gasolina Podium só aparece no card da Vibra
       if (/podium/i.test(c) && !cotMostraPodium(nome)) return;
       const p = precos[c] || 0;
-      const temDesfazer = cotAnterior[nome] && (cotAnterior[nome][c] !== undefined);
+      const temValor = p > 0;
+      const editando = !!(cotEditando[nome] && cotEditando[nome][c]);
+      const en = escAspas(nome), ec = escAspas(c);
+      let campo;
+      if (!temValor || editando){
+        // campo editável — 1º valor é livre (salva ao sair); edição de valor existente exige Confirmar
+        campo = '<span class="cot-preco-campo">' +
+          '<input id="'+cotFieldId(nome,c)+'" type="text" inputmode="decimal" value="'+fmtPrecoComp(p)+'" placeholder="0,00"' +
+            (temValor
+              ? ' onkeydown="if(event.key===\'Enter\')confirmarPreco(\''+en+'\',\''+ec+'\');else if(event.key===\'Escape\')cancelarPreco(\''+en+'\',\''+ec+'\')"'
+              : ' onchange="salvarPrecoLivre(\''+en+'\',\''+ec+'\',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()"') +
+          '>' +
+          (editando
+            ? '<button class="cot-btn cot-ok" title="Confirmar alteração" onclick="confirmarPreco(\''+en+'\',\''+ec+'\')">✓</button>' +
+              '<button class="cot-btn cot-cancel" title="Cancelar (mantém o valor salvo)" onclick="cancelarPreco(\''+en+'\',\''+ec+'\')">✕</button>'
+            : '') +
+        '</span>';
+      } else {
+        // valor já salvo — travado; para mudar, clicar em Editar
+        campo = '<span class="cot-preco-campo">' +
+          '<input type="text" class="cot-lock" value="'+fmtPrecoComp(p)+'" readonly>' +
+          '<button class="cot-btn cot-edit" title="Editar este preço" onclick="editarPreco(\''+en+'\',\''+ec+'\')">✏️</button>' +
+        '</span>';
+      }
       html += '<div class="cot-fuel">' +
-        '<div class="comp-preco-row"><span class="cot-fnome">'+c+'</span>' +
-          '<span class="cot-preco-campo">' +
-            '<input type="text" inputmode="decimal" value="'+fmtPrecoComp(p)+'" placeholder="0,00" ' +
-              'onchange="setPrecoCotacao(\''+escAspas(nome)+'\', \''+escAspas(c)+'\', this.value)">' +
-            '<button class="cot-undo'+(temDesfazer?'':' oculto')+'" title="Desfazer este preço (voltar ao anterior)" onclick="voltarPreco(\''+escAspas(nome)+'\', \''+escAspas(c)+'\')">↩</button>' +
-          '</span>' +
-        '</div>' +
+        '<div class="comp-preco-row"><span class="cot-fnome">'+c+'</span>' + campo + '</div>' +
         cotDeltaHtml(nome, c, p) +
       '</div>';
     });
@@ -2751,8 +2771,8 @@ function renderCotacoes(){
   html += resumoCotHtml();
   html += '<p class="nota-dash" style="margin-top:14px">' +
     (ehHoje
-      ? 'Os preços são salvos na nuvem automaticamente ao sair do campo. Errou uma digitação? Toque no ↩ ao lado daquele preço para voltar ao valor anterior. Para conferir outro dia, escolha a data acima.'
-      : 'Você está vendo (e editando) as cotações de <b>'+fmtDataCurta(cotDataSel)+'</b>. As mudanças são salvas automaticamente; o ↩ ao lado de cada preço desfaz aquela digitação.') +
+      ? 'O primeiro valor de cada combustível é lançado direto (salva ao sair do campo). Depois de salvo, o campo fica travado: para mudar, toque em ✏️, digite o novo valor e confirme em ✓ (ou ✕ para cancelar). Para conferir outro dia, escolha a data acima.'
+      : 'Você está vendo as cotações de <b>'+fmtDataCurta(cotDataSel)+'</b>. Para alterar um valor já salvo, toque em ✏️, digite e confirme em ✓.') +
     '</p>';
   cont.innerHTML = html;
 }
@@ -2842,30 +2862,43 @@ function persistirCotDia(){
   const st = document.getElementById("cotStatus");
   if (st){ st.textContent = "✓ salvo na nuvem"; st.className = "cot-status ok"; }
 }
-function setPrecoCotacao(dist, comb, val){
-  const v = parsePrecoComp(val);
+function cotFieldId(nome, comb){
+  const raw = String(nome)+"\u0001"+String(comb);
+  try { return "cotinp_" + btoa(unescape(encodeURIComponent(raw))).replace(/[^A-Za-z0-9]/g,""); }
+  catch(_){ return "cotinp_" + raw.replace(/[^A-Za-z0-9]/g,"_"); }
+}
+function aplicarPrecoCot(dist, comb, v){
   if (!cotEdit.dists) cotEdit.dists = {};
   const d = cotEdit.dists[dist] || (cotEdit.dists[dist] = { precos:{} });
   if (!d.precos) d.precos = {};
-  const antes = (d.precos[comb] != null) ? d.precos[comb] : 0;   // valor antes desta edição
-  const novo = (v > 0) ? v : 0;
-  if (novo === antes){ renderCotacoes(); return; }               // não mudou nada
-  if (!cotAnterior[dist]) cotAnterior[dist] = {};
-  cotAnterior[dist][comb] = antes;                                // guarda para o desfazer
   if (v > 0) d.precos[comb] = v; else delete d.precos[comb];
   d.por = usuarioAtual || "";
   persistirCotDia();
+}
+// 1º valor (campo vazio): salva direto ao sair do campo
+function salvarPrecoLivre(dist, comb, val){
+  aplicarPrecoCot(dist, comb, parsePrecoComp(val));
   renderCotacoes();
 }
-function voltarPreco(dist, comb){
-  if (!cotAnterior[dist] || cotAnterior[dist][comb] === undefined) return;
-  const antes = cotAnterior[dist][comb];
-  const d = cotEdit.dists[dist] || (cotEdit.dists[dist] = { precos:{} });
-  if (!d.precos) d.precos = {};
-  if (antes > 0) d.precos[comb] = antes; else delete d.precos[comb];
-  d.por = usuarioAtual || "";
-  delete cotAnterior[dist][comb];                                 // desfazer consumido
-  persistirCotDia();
+// destrava um preço já salvo para edição
+function editarPreco(dist, comb){
+  if (!cotEditando[dist]) cotEditando[dist] = {};
+  cotEditando[dist][comb] = true;
+  renderCotacoes();
+  const el = document.getElementById(cotFieldId(dist, comb));
+  if (el){ try { el.focus(); el.select(); } catch(_){} }
+}
+// confirma a alteração do preço em edição
+function confirmarPreco(dist, comb){
+  const el = document.getElementById(cotFieldId(dist, comb));
+  const v = el ? parsePrecoComp(el.value) : 0;
+  aplicarPrecoCot(dist, comb, v);
+  if (cotEditando[dist]) delete cotEditando[dist][comb];
+  renderCotacoes();
+}
+// cancela a edição (mantém o valor que já estava salvo)
+function cancelarPreco(dist, comb){
+  if (cotEditando[dist]) delete cotEditando[dist][comb];
   renderCotacoes();
 }
 
