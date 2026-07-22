@@ -640,6 +640,12 @@
   .dc-item{display:flex;flex-direction:column;gap:2px}
   .dc-lbl{font-size:.7rem;color:var(--cinza);text-transform:uppercase;letter-spacing:.3px}
   .dc-val{font-size:1.12rem;font-weight:700;color:var(--txt)}
+  .dc-posto-tit{margin-top:14px;font-size:.7rem;color:var(--cinza);text-transform:uppercase;letter-spacing:.3px;font-weight:700}
+  .dc-postos{display:flex;flex-wrap:wrap;gap:10px;margin-top:7px}
+  .dc-posto{background:var(--superficie);border:1px solid var(--borda);border-radius:9px;padding:8px 13px;display:flex;flex-direction:column;gap:1px;min-width:135px}
+  .dc-posto-nome{font-size:.8rem;font-weight:600;color:var(--txt)}
+  .dc-posto-val{font-size:1rem;font-weight:700;color:var(--verde)}
+  .dc-posto-sub{font-size:.7rem;color:var(--cinza)}
   .desc-tabela-wrap{overflow-x:auto}
   .desc-tabela{width:100%;border-collapse:collapse;font-size:.85rem}
   .desc-tabela th{text-align:left;font-size:.66rem;text-transform:uppercase;letter-spacing:.3px;color:var(--cinza);padding:6px 8px;border-bottom:1px solid var(--borda);white-space:nowrap}
@@ -3508,22 +3514,40 @@ function renderDescontos(){
   if (!cons || !cont) return;
   const itens = (descontos || []).slice().sort((a,b) => String(a.hora||"").localeCompare(String(b.hora||"")));
   let totDesc = 0, totVol = 0;
-  itens.forEach(d => { totDesc += (+d.desconto || 0); totVol += (+d.volume || 0); });
+  const porPosto = {};
+  itens.forEach(d => {
+    totDesc += (+d.desconto || 0); totVol += (+d.volume || 0);
+    const p = d.posto || "(sem posto)";
+    if (!porPosto[p]) porPosto[p] = { desc:0, vol:0, n:0 };
+    porPosto[p].desc += (+d.desconto || 0); porPosto[p].vol += (+d.volume || 0); porPosto[p].n += 1;
+  });
   const medL = totVol > 0 ? totDesc / totVol : 0;
+  const postosOrd = Object.keys(porPosto).sort((a,b) => porPosto[b].desc - porPosto[a].desc);
+  let porPostoHtml = "";
+  if (postosOrd.length){
+    porPostoHtml = '<div class="dc-posto-tit">Por unidade</div><div class="dc-postos">';
+    postosOrd.forEach(p => {
+      porPostoHtml += '<div class="dc-posto"><span class="dc-posto-nome">' + escAttr(p) + '</span>' +
+        '<span class="dc-posto-val">R$ ' + fmtBR(porPosto[p].desc,2) + '</span>' +
+        '<span class="dc-posto-sub">' + fmtLitros(porPosto[p].vol) + ' L · ' + porPosto[p].n + ' lanç.</span></div>';
+    });
+    porPostoHtml += '</div>';
+  }
   cons.innerHTML =
     '<div class="desc-cons"><div class="dc-tit">📊 Consolidado do dia</div><div class="dc-grid">' +
       '<div class="dc-item"><span class="dc-lbl">Desconto total</span><span class="dc-val">R$ ' + fmtBR(totDesc,2) + '</span></div>' +
       '<div class="dc-item"><span class="dc-lbl">Volume total</span><span class="dc-val">' + fmtLitros(totVol) + ' L</span></div>' +
       '<div class="dc-item"><span class="dc-lbl">Desconto médio / litro</span><span class="dc-val">R$ ' + fmtBR(medL,4) + '</span></div>' +
       '<div class="dc-item"><span class="dc-lbl">Lançamentos</span><span class="dc-val">' + itens.length + '</span></div>' +
-    '</div></div>';
+    '</div>' + porPostoHtml + '</div>';
   if (!itens.length){ cont.innerHTML = '<p class="nota-dash">Nenhum desconto lançado neste dia.</p>'; return; }
   const podeExcluir = d => (typeof ehAdminAtual === "function" && ehAdminAtual()) || (d.por && d.por === usuarioAtual);
   let h = '<div class="desc-tabela-wrap"><table class="desc-tabela"><thead><tr>' +
-    '<th>Hora</th><th>Cliente</th><th>Combustível</th><th>Valor/L</th><th>Desc./L</th><th>Volume</th><th>Desconto</th><th>Motivo</th><th>Quem lançou</th><th></th></tr></thead><tbody>';
+    '<th>Hora</th><th>Posto</th><th>Cliente</th><th>Combustível</th><th>Valor/L</th><th>Desc./L</th><th>Volume</th><th>Desconto</th><th>Motivo</th><th>Quem lançou</th><th></th></tr></thead><tbody>';
   itens.forEach(d => {
     h += '<tr>' +
       '<td data-lbl="Hora">' + escAttr(d.hora || "") + '</td>' +
+      '<td data-lbl="Posto">' + escAttr(d.posto || "—") + '</td>' +
       '<td data-lbl="Cliente">' + escAttr(d.cliente || "") + '</td>' +
       '<td data-lbl="Combustível">' + escAttr(d.combustivel || "—") + '</td>' +
       '<td data-lbl="Valor/L">' + ((+d.valorLitro>0) ? ("R$ " + fmtBR(+d.valorLitro,2)) : "—") + '</td>' +
