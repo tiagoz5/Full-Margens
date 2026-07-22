@@ -1831,7 +1831,7 @@ function resetUsuario(){
    gerenciáveis pelo painel ⚙ Configurações e ficam salvas.      */
 const OPCOES = {
   forma:        ["Á Vista","Prazo"],
-  combustivel:  ["Gasolina Comum","Gasolina Aditivada","Gasolina Podium","Diesel S10","Diesel S-500","Etanol"]
+  combustivel:  ["Gasolina Comum","Gasolina Aditivada","Gasolina Podium","Diesel S10","Diesel S500","Etanol"]
 };
 
 const CHAVE_LISTAS = "margens_combustiveis_listas";
@@ -3388,10 +3388,10 @@ function alternarDescontos(){
 }
 function postoTemPodium(posto){ return String(posto||"").toLowerCase().indexOf("teresina") >= 0; }
 function combustiveisDoPosto(posto){
-  // Teresina vende Podium e o Diesel S10 Grid (aditivado); Caxias e Dutra vendem Diesel S10 e Diesel S-500.
+  // Teresina vende Podium e o Diesel S10 Grid (aditivado); Caxias e Dutra vendem Diesel S10 e Diesel S500.
   if (postoTemPodium(posto))
     return ["Gasolina Comum","Gasolina Aditivada","Gasolina Podium","Diesel S10 Grid","Etanol"];
-  return ["Gasolina Comum","Gasolina Aditivada","Diesel S10","Diesel S-500","Etanol"];
+  return ["Gasolina Comum","Gasolina Aditivada","Diesel S10","Diesel S500","Etanol"];
 }
 function fmtQuandoISO(iso){
   if (!iso) return "";
