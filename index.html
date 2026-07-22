@@ -2516,7 +2516,7 @@ function excluir(i){
 
 /* ================== Salvar / Carregar / Exportar ================== */
 // Painéis que ocupam a página; só um fica aberto por vez
-const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelDescontos","painelComparativo","painelPuxadas","painelCotacoes","painelAvisos","painelCalendario","painelConfig","painelAdmin"];
+const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelDescontos","painelComparativo","painelPuxadas","painelCotacoes","painelAvisos","painelCalendario","painelConta","painelConfig","painelAdmin"];
 function fecharTodosPaineis(exceto){
   PAINEIS.forEach(id => {
     const el = document.getElementById(id);
@@ -2527,6 +2527,8 @@ function fecharTodosPaineis(exceto){
     document.getElementById("painelRegistros").classList.contains("aberto"));
   const bh = document.getElementById("btnHistorico");
   if (bh) bh.classList.toggle("ativo", document.getElementById("painelHistorico").classList.contains("aberto"));
+  const bcta = document.getElementById("btnConta");
+  if (bcta) bcta.classList.toggle("ativo", document.getElementById("painelConta").classList.contains("aberto"));
   const bc = document.getElementById("btnConfig");
   if (bc) bc.classList.toggle("ativo", document.getElementById("painelConfig").classList.contains("aberto"));
   const bu = document.getElementById("btnUsuarios");
