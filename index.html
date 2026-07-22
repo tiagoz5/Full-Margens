@@ -667,6 +667,15 @@
   .conta-senha{display:flex;flex-direction:column;gap:8px;max-width:340px;margin-bottom:8px}
   .conta-senha input{border:1px solid var(--borda);border-radius:8px;padding:10px;font-size:.95rem;background:var(--superficie);color:var(--txt)}
   .conta-alt{margin-top:6px}
+  .usr-acesso{margin:4px 0 10px;padding:8px 10px;border:1px solid var(--borda);border-radius:8px;background:var(--superficie-2)}
+  .usr-acesso-lbl{font-size:.85rem;color:var(--txt);display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .usr-acesso-lbl select{border:1px solid var(--borda);border-radius:6px;padding:5px 8px;background:var(--superficie);color:var(--txt);font-size:.85rem}
+  .usr-perm-info{margin-top:8px;font-size:.82rem;color:var(--cinza)}
+  .perfis-lista{display:flex;flex-direction:column;gap:12px;margin:8px 0}
+  .perfil-item{border:1px solid var(--borda);border-radius:9px;padding:10px 12px;background:var(--superficie-2)}
+  .perfil-top{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .perfil-nome{flex:1 1 auto;border:1px solid var(--borda);border-radius:6px;padding:7px 9px;font-size:.92rem;font-weight:600;background:var(--superficie);color:var(--txt)}
+  .perfil-x{color:var(--vermelho);flex:0 0 auto}
   .usr-item input[readonly]{background:transparent;border-color:transparent;color:var(--txt);opacity:.9;cursor:default;box-shadow:none}
   .usr-item.editando{box-shadow:0 0 0 2px var(--verde) inset;background:var(--verde-claro)}
   .usr-item .mot-campo{flex:1 1 190px;display:flex;min-width:0}
@@ -995,7 +1004,7 @@
     <button class="btn-claro" id="btnImprimir" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
     <button class="btn-claro" id="btnConta" onclick="alternarConta()"><span class="mi">👤</span><span class="mt">Minha conta</span></button>
     <button class="btn-claro" id="btnConfig" onclick="alternarConfig()"><span class="mi">⚙</span><span class="mt">Configurações</span></button>
-    <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()"><span class="mi">👥</span><span class="mt">Usuários</span></button>
+    <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()"><span class="mi">👥</span><span class="mt">Painel Administrativo</span></button>
     <button class="btn-claro menu-tema" id="btnTema" onclick="alternarTema()"><span class="mi" id="temaIcone">🌙</span><span class="mt" id="temaLabel">Tema escuro</span></button>
     <button class="btn-dourado menu-sair" onclick="sair()"><span class="mi">🚪</span><span class="mt">Sair</span></button>
   </aside>
@@ -1192,6 +1201,16 @@
       <div class="msg-admin" id="msgAdmin"></div>
     </div>
     <div class="grupo">
+      <h2>Perfis de acesso</h2>
+      <p class="nota-dash">Crie perfis (ex.: "Caixa", "Gerente") marcando os menus que cada um pode ver. Depois, na lista de usuários abaixo, associe cada pessoa a um perfil — ou escolha os menus manualmente. Se você mudar os menus de um perfil, todos os usuários daquele perfil mudam junto.</p>
+      <div class="perfis-lista" id="listaPerfis"></div>
+      <div class="add-linha">
+        <input id="novoPerfilNome" maxlength="30" placeholder="Nome do novo perfil" onkeydown="if(event.key==='Enter')criarPerfilAcesso()">
+        <button class="btn-verde" onclick="criarPerfilAcesso()">Criar perfil</button>
+      </div>
+      <div class="msg-admin" id="msgPerfis"></div>
+    </div>
+    <div class="grupo">
       <h2>Usuários cadastrados</h2>
       <p class="nota-dash">Edite o nome de exibição (salva sozinho ao sair do campo) ou envie um link de troca de senha para o e-mail do usuário. Para remover, bloquear ou definir uma senha manualmente, use o painel do Firebase no fim da página.</p>
       <div class="usr-lista" id="listaUsuarios"></div>
@@ -1240,14 +1259,6 @@
   </div>
 
   <div class="config" id="painelConfig">
-    <div class="grupo">
-      <h2>Seu nome</h2>
-      <div class="campo-nome">
-        <input id="meuNome" maxlength="40" placeholder="Como você quer aparecer no histórico" onkeydown="if(event.key==='Enter')salvarMeuNome()">
-        <button class="btn-verde" id="btnSalvarNome" onclick="salvarMeuNome()">Salvar</button>
-      </div>
-      <span class="nota-nome">Este nome aparece no Histórico no lugar do seu e-mail, para ficar fácil identificar quem fez cada alteração. Vale só para você.</span>
-    </div>
     <div class="grupo">
       <h2>Postos</h2>
       <div class="chips" id="chipsPosto"></div>
@@ -1365,6 +1376,7 @@ const docConfig = db.collection("config").doc("geral");
 const colHistorico = db.collection("historico");
 const colPerfis = db.collection("perfis");   // nome amigável por usuário (id do doc = e-mail)
 const docPermissoes = db.collection("config").doc("permissoes"); // {porUsuario:{email:{menuKey:bool}}} — quais menus cada usuário vê
+const docPerfisAcesso = db.collection("config").doc("perfisAcesso"); // {perfis:{id:{nome,menus:{key:true}}}} — perfis de acesso a menus
 const docCotacoes = db.collection("config").doc("cotacoesDia");   // cotações do dia por distribuidora
 const docPetros = db.collection("config").doc("petrosResumo");    // resumo do Resultado no período (sistema Petros)
 const docAvisos = db.collection("config").doc("avisos");          // notificações vindas das agendas Google dos postos
@@ -1383,8 +1395,10 @@ let escutaHistorico = null;
 let limiteHistorico = 200;              // quantas alterações carregar da nuvem
 let todoHistoricoCarregado = false;     // true quando não há mais registros antigos
 let escutaPerfis = null;
-let permissoesTodos = {};              // {emailLower:{menuKey:bool}} sincronizado da nuvem
+let permissoesTodos = {};              // {emailLower:{menuKey:bool} | {perfil:id} | {menus:{...}}} sincronizado da nuvem
 let escutaPermissoes = null;
+let perfisAcesso = {};                 // {id:{nome,menus:{key:true}}} sincronizado da nuvem
+let escutaPerfisAcesso = null;
 let nuvemPronta = false;        // já recebemos o primeiro retrato da nuvem?
 let escutaLancamentos = null;   // cancelador do listener em tempo real
 let escutaConfig = null;
@@ -1722,6 +1736,7 @@ function aoMudarLogin(usuario){
     if (escutaConfig){ escutaConfig(); escutaConfig = null; }
     if (escutaPerfis){ escutaPerfis(); escutaPerfis = null; }
     if (escutaPermissoes){ escutaPermissoes(); escutaPermissoes = null; }
+    if (escutaPerfisAcesso){ escutaPerfisAcesso(); escutaPerfisAcesso = null; }
     if (escutaCotacoes){ escutaCotacoes(); escutaCotacoes = null; }
     if (escutaPetros){ escutaPetros(); escutaPetros = null; }
     if (escutaAvisos){ escutaAvisos(); escutaAvisos = null; }
@@ -1740,7 +1755,7 @@ function alternarAdmin(){
   const aberto = abrirPainelExclusivo("painelAdmin");
   const bu = document.getElementById("btnUsuarios");
   if (bu) bu.classList.toggle("ativo", aberto);
-  if (aberto) renderAdminUsuarios();
+  if (aberto){ renderAdminUsuarios(); renderPerfisAcesso(); }
 }
 
 /* Lista de usuários cadastrados: perfis salvos + quem já aparece no histórico */
@@ -1770,21 +1785,38 @@ function renderAdminUsuarios(){
       'onchange="salvarNomeUsuario(\'' + asp(e) + '\', this.value)">' +
       '<button class="btn-claro" title="Envia um e-mail para o usuário escolher uma senha nova" ' +
       'onclick="enviarResetUsuario(\'' + asp(e) + '\')">🔑 Trocar senha</button>' +
-      (ehAdmin ? '' : '<button class="btn-claro usr-perm-btn" onclick="alternarPermUsuario(\'' + asp(e) + '\')">🔒 Menus</button>') +
       '</div>';
     if (!ehAdmin){
-      const perm = permissoesTodos[e] || null;   // null = vê tudo
-      html += '<div class="usr-perm" id="perm_' + idSafe + '"' + (permAbertos.has(e) ? '' : ' style="display:none"') + '>';
-      html += '<div class="usr-perm-top"><span>Menus que <b>' + (mapa[e] || e) + '</b> pode ver:</span>' +
-        '<button class="btn-claro usr-perm-reset" onclick="liberarTudoUsuario(\'' + asp(e) + '\')">Liberar tudo</button></div>';
-      html += '<div class="usr-perm-grid">';
-      MENUS_APP.forEach(m => {
-        if (m.key === "conta") return;   // Minha conta é sempre visível — não dá para desmarcar
-        const marcado = perm ? (perm[m.key] === true) : true;
-        html += '<label class="usr-perm-item"><input type="checkbox" ' + (marcado ? 'checked' : '') +
-          ' onchange="setPermUsuario(\'' + asp(e) + '\', \'' + m.key + '\', this.checked)"> ' + m.nome + '</label>';
-      });
-      html += '</div>';
+      const rule = normPerm(permissoesTodos[e]);
+      let modo = ""; if (rule && rule.perfil) modo = "perfil:" + rule.perfil; else if (rule && rule.menus) modo = "manual";
+      html += '<div class="usr-acesso">';
+      html += '<label class="usr-acesso-lbl">Acesso aos menus: <select onchange="definirAcessoUsuario(\'' + asp(e) + '\', this.value)">';
+      html += '<option value=""' + (modo === "" ? " selected" : "") + '>Vê todos os menus</option>';
+      const pids = Object.keys(perfisAcesso || {});
+      if (pids.length){
+        html += '<optgroup label="Perfis">';
+        pids.forEach(pid => {
+          const val = "perfil:" + pid;
+          html += '<option value="' + val + '"' + (modo === val ? " selected" : "") + '>Perfil: ' + escAttr(perfisAcesso[pid].nome || "(sem nome)") + '</option>';
+        });
+        html += '</optgroup>';
+      }
+      html += '<option value="manual"' + (modo === "manual" ? " selected" : "") + '>Escolher manualmente</option>';
+      html += '</select></label>';
+      if (modo === "manual"){
+        html += '<div class="usr-perm-grid">';
+        MENUS_APP.forEach(m => {
+          if (m.key === "conta") return;
+          const on = !!(rule.menus && rule.menus[m.key] === true);
+          html += '<label class="usr-perm-item"><input type="checkbox" ' + (on ? 'checked' : '') +
+            ' onchange="setPermUsuario(\'' + asp(e) + '\', \'' + m.key + '\', this.checked)"> ' + m.nome + '</label>';
+        });
+        html += '</div>';
+      } else if (modo.indexOf("perfil:") === 0){
+        const p = perfisAcesso[modo.slice(7)];
+        const nomes = p ? MENUS_APP.filter(m => m.key !== "conta" && p.menus && p.menus[m.key] === true).map(m => m.nome) : [];
+        html += '<div class="usr-perm-info">Vê: ' + (nomes.length ? escAttr(nomes.join(", ")) : "nenhum menu ainda") + '.</div>';
+      }
       html += '<p class="nota-dash" style="margin:6px 0 0;font-size:.7rem">O administrador vê tudo. Alterações valem quando o usuário recarregar o app.</p>';
       html += '</div>';
     }
@@ -1802,14 +1834,94 @@ function alternarPermUsuario(email){
 }
 function setPermUsuario(email, key, marcado){
   email = String(email).toLowerCase();
-  let perm = Object.assign({}, permissoesTodos[email] || {});
-  if (!permissoesTodos[email]){ MENUS_APP.forEach(m => { perm[m.key] = true; }); } // não existia = tudo liberado
-  perm[key] = !!marcado;
-  permissoesTodos[email] = perm;   // otimista
+  const rule = normPerm(permissoesTodos[email]);
+  let menus;
+  if (rule && rule.menus){ menus = Object.assign({}, rule.menus); }
+  else { menus = {}; MENUS_APP.forEach(m => { if (m.key !== "conta") menus[m.key] = true; }); }  // base: via tudo
+  menus[key] = !!marcado;
+  permissoesTodos[email] = { menus };   // vira modo manual
   docPermissoes.set({ porUsuario: permissoesTodos })
-    .then(()=> avisoAdmin("msgAdminLista", "Permissões de " + email + " salvas.", "ok"))
+    .then(()=> avisoAdmin("msgAdminLista", "Menus de " + email + " salvos.", "ok"))
     .catch(er => avisoAdmin("msgAdminLista", msgErro(er), "erro"));
   aplicarVisibilidadeMenus();
+}
+// Define como o usuário acessa os menus: "" (vê tudo), "perfil:<id>" ou "manual"
+function definirAcessoUsuario(email, val){
+  email = String(email).toLowerCase();
+  if (val === ""){
+    delete permissoesTodos[email];
+  } else if (val.indexOf("perfil:") === 0){
+    permissoesTodos[email] = { perfil: val.slice(7) };
+  } else if (val === "manual"){
+    const menus = {};
+    MENUS_APP.forEach(m => { if (m.key !== "conta") menus[m.key] = menuPermitidoDe(email, m.key); }); // parte do estado atual
+    permissoesTodos[email] = { menus };
+  }
+  docPermissoes.set({ porUsuario: permissoesTodos })
+    .then(()=> avisoAdmin("msgAdminLista", "Acesso de " + email + " atualizado.", "ok"))
+    .catch(er => avisoAdmin("msgAdminLista", msgErro(er), "erro"));
+  aplicarVisibilidadeMenus();
+  renderAdminUsuarios();
+}
+// ----- Perfis de acesso (templates de menus, com vínculo ao vivo) -----
+function renderPerfisAcesso(){
+  const cont = document.getElementById("listaPerfis");
+  if (!cont) return;
+  const ids = Object.keys(perfisAcesso || {});
+  if (!ids.length){
+    cont.innerHTML = '<p class="nota-dash">Nenhum perfil ainda. Crie um abaixo (ex.: "Caixa", "Gerente") e marque os menus que ele pode ver.</p>';
+    return;
+  }
+  let h = '';
+  ids.forEach(id => {
+    const p = perfisAcesso[id] || { nome:"", menus:{} };
+    h += '<div class="perfil-item"><div class="perfil-top">' +
+      '<input class="perfil-nome" maxlength="30" value="' + escAttr(p.nome || "") + '" placeholder="Nome do perfil" onchange="renomearPerfilAcesso(\'' + id + '\', this.value)">' +
+      '<button class="btn-claro perfil-x" onclick="removerPerfilAcesso(\'' + id + '\')">✕ excluir</button></div>';
+    h += '<div class="usr-perm-grid">';
+    MENUS_APP.forEach(m => {
+      if (m.key === "conta") return;
+      const on = !!(p.menus && p.menus[m.key] === true);
+      h += '<label class="usr-perm-item"><input type="checkbox" ' + (on ? 'checked' : '') +
+        ' onchange="setMenuPerfil(\'' + id + '\', \'' + m.key + '\', this.checked)"> ' + m.nome + '</label>';
+    });
+    h += '</div></div>';
+  });
+  cont.innerHTML = h;
+}
+function criarPerfilAcesso(){
+  const inp = document.getElementById("novoPerfilNome");
+  const nome = (inp && inp.value || "").trim();
+  if (!nome){ avisoAdmin("msgPerfis", "Dê um nome ao perfil (ex.: Caixa).", "erro"); return; }
+  const id = novoId();
+  perfisAcesso[id] = { nome, menus: {} };
+  docPerfisAcesso.set({ perfis: perfisAcesso })
+    .then(()=>{ if (inp) inp.value = ""; avisoAdmin("msgPerfis", 'Perfil "' + nome + '" criado. Agora marque os menus dele.', "ok"); renderPerfisAcesso(); renderAdminUsuarios(); })
+    .catch(e => avisoAdmin("msgPerfis", msgErro(e), "erro"));
+}
+function setMenuPerfil(id, key, on){
+  if (!perfisAcesso[id]) return;
+  if (!perfisAcesso[id].menus) perfisAcesso[id].menus = {};
+  if (on) perfisAcesso[id].menus[key] = true; else delete perfisAcesso[id].menus[key];
+  docPerfisAcesso.set({ perfis: perfisAcesso })
+    .then(()=> aplicarVisibilidadeMenus())
+    .catch(e => avisoAdmin("msgPerfis", msgErro(e), "erro"));
+}
+function renomearPerfilAcesso(id, val){
+  if (!perfisAcesso[id]) return;
+  perfisAcesso[id].nome = String(val || "").trim();
+  docPerfisAcesso.set({ perfis: perfisAcesso })
+    .then(()=> renderAdminUsuarios())
+    .catch(e => avisoAdmin("msgPerfis", msgErro(e), "erro"));
+}
+let confirmarExclPerfil = null;
+function removerPerfilAcesso(id){
+  if (confirmarExclPerfil !== id){ confirmarExclPerfil = id; avisoAdmin("msgPerfis", "Toque de novo em \u2715 excluir para confirmar a remoção do perfil.", "erro"); return; }
+  confirmarExclPerfil = null;
+  delete perfisAcesso[id];
+  docPerfisAcesso.set({ perfis: perfisAcesso })
+    .then(()=>{ avisoAdmin("msgPerfis", "Perfil excluído. Usuários que usavam esse perfil voltaram a ver todos os menus — reassocie se precisar.", "ok"); renderPerfisAcesso(); renderAdminUsuarios(); aplicarVisibilidadeMenus(); })
+    .catch(e => avisoAdmin("msgPerfis", msgErro(e), "erro"));
 }
 function liberarTudoUsuario(email){
   email = String(email).toLowerCase();
@@ -2237,6 +2349,16 @@ function iniciarSync(){
     // fecharia o editor aberto. (A lista é montada ao abrir o painel, já com o estado atual.)
   }, ()=>{});
 
+  // Perfis de acesso (templates de menus)
+  escutaPerfisAcesso = docPerfisAcesso.onSnapshot(snap => {
+    const d = snap.exists ? (snap.data() || {}) : {};
+    perfisAcesso = (d && d.perfis) ? d.perfis : {};
+    aplicarVisibilidadeMenus();
+    garantirPainelPermitido();
+    const pa = document.getElementById("painelAdmin");
+    if (pa && pa.classList.contains("aberto")) renderPerfisAcesso();
+  }, ()=>{});
+
   // Configurações compartilhadas
   escutaConfig = docConfig.onSnapshot(snap => {
     if (snap.exists){
@@ -2596,12 +2718,29 @@ const MENUS_APP = [
 ];
 function ehAdminAtual(){ return (typeof ADMINS!=="undefined") && ADMINS.includes((usuarioAtual||"").toLowerCase()); }
 // Um menu é permitido se: usuário é admin, OU não há regra p/ ele (vê tudo), OU a regra marca true
+function normPerm(v){
+  if (!v || typeof v !== "object") return null;
+  if (v.perfil) return { perfil: v.perfil };
+  if (v.menus && typeof v.menus === "object") return { menus: v.menus };
+  return { menus: v };   // legado: mapa plano menuKey->bool
+}
+function menuPermitidoDe(email, key){
+  if (key === "conta") return true;
+  email = (email || "").toLowerCase();
+  if ((typeof ADMINS !== "undefined") && ADMINS.includes(email)) return true;
+  const rule = normPerm(permissoesTodos[email]);
+  if (!rule) return true;                       // sem regra = vê tudo
+  if (rule.perfil){
+    const p = perfisAcesso[rule.perfil];
+    if (!p) return true;                        // perfil apagado = não travar o usuário
+    return !!(p.menus && p.menus[key] === true);
+  }
+  return !!(rule.menus && rule.menus[key] === true);
+}
 function menuPermitido(key){
-  if (key === "conta") return true;   // Minha conta: todos sempre veem (trocar nome/senha)
+  if (key === "conta") return true;   // Minha conta: todos sempre veem
   if (ehAdminAtual()) return true;
-  const perm = permissoesTodos[(usuarioAtual||"").toLowerCase()];
-  if (!perm) return true;
-  return perm[key] === true;
+  return menuPermitidoDe(usuarioAtual, key);
 }
 function menuVisivelEmpresa(m, ehTransp){
   return m.emp === "ambos" || (m.emp === "postos" && !ehTransp) || (m.emp === "transp" && ehTransp);
