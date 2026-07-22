@@ -664,6 +664,9 @@
   .pv-sync-vazio{font-size:.82rem;color:var(--cinza)}
   .pv-sub{margin:16px 0 2px;font-size:.98rem;font-weight:700;color:var(--txt);border-top:1px solid var(--borda);padding-top:12px}
   .pv-sub-nota{margin-top:2px}
+  .conta-senha{display:flex;flex-direction:column;gap:8px;max-width:340px;margin-bottom:8px}
+  .conta-senha input{border:1px solid var(--borda);border-radius:8px;padding:10px;font-size:.95rem;background:var(--superficie);color:var(--txt)}
+  .conta-alt{margin-top:6px}
   .usr-item input[readonly]{background:transparent;border-color:transparent;color:var(--txt);opacity:.9;cursor:default;box-shadow:none}
   .usr-item.editando{box-shadow:0 0 0 2px var(--verde) inset;background:var(--verde-claro)}
   .usr-item .mot-campo{flex:1 1 190px;display:flex;min-width:0}
@@ -990,6 +993,7 @@
     <button class="btn-claro" id="btnCalendario" onclick="alternarCalendario()"><span class="mi">📅</span><span class="mt">Calendário</span></button>
     <button class="btn-claro" id="btnPdf" onclick="exportarPDF()"><span class="mi">📄</span><span class="mt">Exportar PDF</span></button>
     <button class="btn-claro" id="btnImprimir" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
+    <button class="btn-claro" id="btnConta" onclick="alternarConta()"><span class="mi">👤</span><span class="mt">Minha conta</span></button>
     <button class="btn-claro" id="btnConfig" onclick="alternarConfig()"><span class="mi">⚙</span><span class="mt">Configurações</span></button>
     <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()"><span class="mi">👥</span><span class="mt">Usuários</span></button>
     <button class="btn-claro menu-tema" id="btnTema" onclick="alternarTema()"><span class="mi" id="temaIcone">🌙</span><span class="mt" id="temaLabel">Tema escuro</span></button>
@@ -1204,6 +1208,34 @@
     <div class="grupo">
       <h2>Remover ou bloquear usuários</h2>
       <a class="link-console" href="https://console.firebase.google.com/project/postos-full/authentication/users" target="_blank" rel="noopener">Abrir painel de usuários no Firebase ↗</a>
+    </div>
+  </div>
+
+  <div class="config" id="painelConta">
+    <div class="grupo">
+      <h2>Seu nome de usuário</h2>
+      <div class="campo-nome">
+        <input id="contaNome" maxlength="40" placeholder="Como você quer aparecer no histórico" onkeydown="if(event.key==='Enter')salvarNomeConta()">
+        <button class="btn-verde" id="btnSalvarNomeConta" onclick="salvarNomeConta()">Salvar</button>
+      </div>
+      <span class="nota-nome">Este nome aparece no Histórico no lugar do seu e-mail, para ficar fácil identificar quem fez cada alteração.</span>
+    </div>
+    <div class="grupo">
+      <h2>Trocar minha senha</h2>
+      <div class="conta-senha">
+        <input type="password" id="contaSenha1" autocomplete="new-password" placeholder="Nova senha (mínimo 6 caracteres)">
+        <input type="password" id="contaSenha2" autocomplete="new-password" placeholder="Repita a nova senha" onkeydown="if(event.key==='Enter')trocarMinhaSenha()">
+        <button class="btn-verde" onclick="trocarMinhaSenha()">Salvar nova senha</button>
+      </div>
+      <span class="nota-nome">Se você fez login há bastante tempo, por segurança pode ser que a gente precise confirmar sua identidade por e-mail antes de trocar a senha.</span>
+      <div class="conta-alt">
+        <button class="btn-claro" onclick="enviarMeuReset()">✉️ Prefiro redefinir por e-mail</button>
+      </div>
+      <div class="msg-admin" id="msgConta"></div>
+    </div>
+    <div class="grupo">
+      <h2>Sua conta</h2>
+      <p class="nota-dash">Você está conectado como <b id="contaEmail"></b>.</p>
     </div>
   </div>
 
@@ -1747,6 +1779,7 @@ function renderAdminUsuarios(){
         '<button class="btn-claro usr-perm-reset" onclick="liberarTudoUsuario(\'' + asp(e) + '\')">Liberar tudo</button></div>';
       html += '<div class="usr-perm-grid">';
       MENUS_APP.forEach(m => {
+        if (m.key === "conta") return;   // Minha conta é sempre visível — não dá para desmarcar
         const marcado = perm ? (perm[m.key] === true) : true;
         html += '<label class="usr-perm-item"><input type="checkbox" ' + (marcado ? 'checked' : '') +
           ' onchange="setPermUsuario(\'' + asp(e) + '\', \'' + m.key + '\', this.checked)"> ' + m.nome + '</label>';
@@ -1872,6 +1905,63 @@ function persistirListas(){
   if (nuvemPronta){
     docConfig.set({ listas, fretePadrao }).catch(()=>{});
   }
+}
+
+/* ---------- Painel Minha conta ---------- */
+function alternarConta(){
+  const aberto = abrirPainelExclusivo("painelConta");
+  const bc = document.getElementById("btnConta");
+  if (bc) bc.classList.toggle("ativo", aberto);
+  if (aberto) renderConta();
+}
+function renderConta(){
+  const cn = document.getElementById("contaNome");
+  if (cn && document.activeElement !== cn) cn.value = nomeUsuario || "";
+  const ce = document.getElementById("contaEmail");
+  if (ce) ce.textContent = usuarioAtual || "";
+  const m = document.getElementById("msgConta"); if (m) m.textContent = "";
+}
+function salvarNomeConta(){
+  const input = document.getElementById("contaNome");
+  const nome = (input.value || "").trim();
+  if (!usuarioAtual) return;
+  nomeUsuario = nome;
+  const btn = document.getElementById("btnSalvarNomeConta");
+  colPerfis.doc(usuarioAtual).set({ nome, email: usuarioAtual }, { merge: true })
+    .then(()=>{
+      if (btn){ const t = btn.textContent; btn.textContent = "Salvo \u2713"; btn.disabled = true; setTimeout(()=>{ btn.textContent = t; btn.disabled = false; }, 1600); }
+      const outro = document.getElementById("meuNome"); if (outro) outro.value = nome;
+    })
+    .catch(e => avisoAdmin("msgConta", msgErro(e), "erro"));
+}
+function trocarMinhaSenha(){
+  const c1 = document.getElementById("contaSenha1"), c2 = document.getElementById("contaSenha2");
+  const s1 = (c1.value || ""), s2 = (c2.value || "");
+  if (s1.length < 6){ avisoAdmin("msgConta", "A nova senha precisa ter pelo menos 6 caracteres.", "erro"); return; }
+  if (s1 !== s2){ avisoAdmin("msgConta", "As duas senhas não são iguais. Digite de novo.", "erro"); return; }
+  const user = auth.currentUser;
+  if (!user){ avisoAdmin("msgConta", "Sua sessão expirou. Saia e entre de novo para trocar a senha.", "erro"); return; }
+  avisoAdmin("msgConta", "Salvando...", "ok");
+  user.updatePassword(s1)
+    .then(()=>{
+      c1.value = ""; c2.value = "";
+      avisoAdmin("msgConta", "Senha alterada com sucesso! Use a nova senha no próximo login.", "ok");
+    })
+    .catch(e=>{
+      if (e && e.code === "auth/requires-recent-login"){
+        auth.sendPasswordResetEmail(usuarioAtual)
+          .then(()=> avisoAdmin("msgConta", "Por segurança, enviamos um link para " + usuarioAtual + ". Abra o e-mail e defina sua nova senha por lá.", "ok"))
+          .catch(er=> avisoAdmin("msgConta", msgErro(er), "erro"));
+      } else {
+        avisoAdmin("msgConta", msgErro(e), "erro");
+      }
+    });
+}
+function enviarMeuReset(){
+  if (!usuarioAtual) return;
+  auth.sendPasswordResetEmail(usuarioAtual)
+    .then(()=> avisoAdmin("msgConta", "Enviamos um link para " + usuarioAtual + ". Abra o e-mail para criar a nova senha.", "ok"))
+    .catch(e=> avisoAdmin("msgConta", msgErro(e), "erro"));
 }
 
 /* ---------- Painel de configurações ---------- */
@@ -2129,6 +2219,8 @@ function iniciarSync(){
     nomeUsuario = perfis[(usuarioAtual||"").toLowerCase()] || "";
     const cn = document.getElementById("meuNome");
     if (cn && document.activeElement !== cn) cn.value = nomeUsuario;
+    const cn2 = document.getElementById("contaNome");
+    if (cn2 && document.activeElement !== cn2) cn2.value = nomeUsuario;
     const ph = document.getElementById("painelHistorico");
     if (ph && ph.classList.contains("aberto")) renderHistorico();
   }, ()=>{});
@@ -2497,11 +2589,13 @@ const MENUS_APP = [
   {key:"calendario",  btn:"btnCalendario",  pan:"painelCalendario",  emp:"ambos",  nome:"Calendário"},
   {key:"pdf",         btn:"btnPdf",         pan:null,                emp:"ambos",  nome:"Exportar PDF"},
   {key:"imprimir",    btn:"btnImprimir",    pan:null,                emp:"ambos",  nome:"Imprimir"},
+  {key:"conta",       btn:"btnConta",       pan:"painelConta",       emp:"ambos",  nome:"Minha conta"},
   {key:"config",      btn:"btnConfig",      pan:"painelConfig",      emp:"ambos",  nome:"Configurações"}
 ];
 function ehAdminAtual(){ return (typeof ADMINS!=="undefined") && ADMINS.includes((usuarioAtual||"").toLowerCase()); }
 // Um menu é permitido se: usuário é admin, OU não há regra p/ ele (vê tudo), OU a regra marca true
 function menuPermitido(key){
+  if (key === "conta") return true;   // Minha conta: todos sempre veem (trocar nome/senha)
   if (ehAdminAtual()) return true;
   const perm = permissoesTodos[(usuarioAtual||"").toLowerCase()];
   if (!perm) return true;
