@@ -742,6 +742,11 @@
   .comp-preco-row input{max-width:120px;text-align:right}
   .cot-preco-campo{display:flex;align-items:center;gap:6px;flex:0 0 auto;justify-content:flex-end}
   .cot-preco-campo input{width:110px;max-width:110px;flex:0 0 auto;text-align:right}
+  #conteudoCotacoes .comp-preco-row{flex-wrap:wrap}
+  .cot-delta{flex-basis:100%;text-align:right;font-size:.7rem;font-weight:700;margin:-1px 0 3px;line-height:1.2}
+  .cot-delta.subiu{color:var(--vermelho)}
+  .cot-delta.desceu{color:var(--verde)}
+  .cot-delta.igual{color:var(--cinza);font-weight:600}
   .cot-undo{background:transparent;border:1px solid var(--borda);color:var(--cinza);border-radius:6px;padding:6px 0;width:34px;text-align:center;cursor:pointer;font-size:.85rem;line-height:1;flex:0 0 auto}
   .cot-undo:hover{color:var(--verde);border-color:var(--verde)}
   .cot-undo.oculto{visibility:hidden;pointer-events:none}
@@ -1245,6 +1250,7 @@ let cotEdit = { dists: {} };       // buffer editável do dia selecionado
 let cotDataSel = "";               // dia selecionado (YYYY-MM-DD)
 let cotDirty = false;              // (não usado — auto-save de volta)
 let cotAnterior = {};              // valor anterior de cada preço, para o botão desfazer
+let cotHistorico = {};             // último registro ANTERIOR de cada dist/comb {dist:{comb:{valor,data}}} p/ mostrar a variação
 let escutaPetros = null;
 let petrosResumo = null;           // resumo do Petros sincronizado da nuvem
 let escutaAvisos = null;
@@ -2502,6 +2508,7 @@ function carregarCotDia(){
   cotDataSel = novaData;
   const st = document.getElementById("cotStatus");
   if (st){ st.textContent = ""; st.className = "cot-status"; }
+  carregarHistoricoAnterior(cotDataSel);   // busca o último registro anterior p/ mostrar a variação em centavos
   if (cotDataSel === hojeISO()){
     cotEdit = JSON.parse(JSON.stringify(cotacoesDia && cotacoesDia.dists ? cotacoesDia : { dists:{} }));
     if (!cotEdit.dists) cotEdit.dists = {};
@@ -2521,6 +2528,47 @@ function hojeISO(){
 function fmtDataCurta(iso){
   const p = String(iso||"").split("-");
   return p.length === 3 ? p[2]+"/"+p[1]+"/"+p[0] : (iso||"");
+}
+function carregarHistoricoAnterior(dataSel){
+  // varre os dias ANTERIORES à data selecionada e guarda, por dist+combustível,
+  // o valor do registro mais recente (o "último dia com registro")
+  cotHistorico = {};
+  try {
+    const FP = firebase.firestore.FieldPath.documentId();
+    db.collection("cotacoes").orderBy(FP, "desc").where(FP, "<", dataSel).limit(160).get().then(snap => {
+      snap.forEach(doc => {
+        const dt = doc.id; const d = doc.data() || {};
+        const dists = d.dists || {};
+        Object.keys(dists).forEach(nome => {
+          const precos = (dists[nome] && dists[nome].precos) || {};
+          Object.keys(precos).forEach(comb => {
+            const v = precos[comb];
+            if (v > 0){
+              if (!cotHistorico[nome]) cotHistorico[nome] = {};
+              // ordem desc => o primeiro que aparece é o mais recente; não sobrescreve
+              if (cotHistorico[nome][comb] === undefined) cotHistorico[nome][comb] = { valor: v, data: dt };
+            }
+          });
+        });
+      });
+      renderCotacoes();
+    }).catch(() => { cotHistorico = {}; });
+  } catch(e){ cotHistorico = {}; }
+}
+function fmtDelta(v){
+  let str = Math.abs(v).toFixed(4).replace(/0+$/,"").replace(/\.$/,"");
+  const p = str.split("."); let dec = p[1] || "";
+  while (dec.length < 2) dec += "0";
+  return p[0] + "," + dec;
+}
+function cotDeltaHtml(nome, comb, valorAtual){
+  const prev = (cotHistorico[nome] && cotHistorico[nome][comb]) ? cotHistorico[nome][comb] : null;
+  if (!prev || !(valorAtual > 0)) return "";
+  const dif = Math.round((valorAtual - prev.valor) * 10000) / 10000;
+  const ref = fmtDataCurta(prev.data).slice(0,5);
+  if (Math.abs(dif) < 0.00005) return '<div class="cot-delta igual">→ igual a ' + ref + '</div>';
+  if (dif > 0) return '<div class="cot-delta subiu">▲ R$ ' + fmtDelta(dif) + ' mais caro que ' + ref + '</div>';
+  return '<div class="cot-delta desceu">▼ R$ ' + fmtDelta(dif) + ' mais barato que ' + ref + '</div>';
 }
 function cotMostraPodium(nome){ return String(nome).toLowerCase() === "vibra"; }
 function renderCotacoes(){
@@ -2557,6 +2605,7 @@ function renderCotacoes(){
             'onchange="setPrecoCotacao(\''+escAspas(nome)+'\', \''+escAspas(c)+'\', this.value)">' +
           '<button class="cot-undo'+(temDesfazer?'':' oculto')+'" title="Desfazer este preço (voltar ao anterior)" onclick="voltarPreco(\''+escAspas(nome)+'\', \''+escAspas(c)+'\')">↩</button>' +
         '</span>' +
+        cotDeltaHtml(nome, c, p) +
       '</div>';
     });
     html += '</div>';
