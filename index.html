@@ -121,6 +121,13 @@
   header .logo-app{height:36px;width:auto;display:block}
   #statusSalvo{font-size:.68rem;font-weight:400;font-family:"Poppins",sans-serif;text-transform:none;letter-spacing:0;color:#FFC9A3;margin-left:10px;opacity:0;transition:opacity .4s}
   header .acoes{display:flex;gap:8px;flex-wrap:wrap}
+  .header-acoes-topo{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .header-sino{position:relative;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.20);color:#fff;
+    border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;padding:0;line-height:1}
+  .header-sino:hover{background:rgba(255,255,255,.16);border-color:var(--verde)}
+  .header-sino.ativo{border-color:var(--verde);box-shadow:0 0 0 2px var(--verde) inset;color:var(--verde)}
+  .header-sino-badge{position:absolute;top:-4px;right:-4px;background:var(--vermelho);color:#fff;font-size:.6rem;font-weight:700;
+    border-radius:10px;padding:1px 5px;line-height:1.3;min-width:16px;text-align:center}
   /* ===== Menu lateral (estilo painel Petros) ===== */
   .menu-lateral{position:fixed;left:0;top:0;bottom:0;width:62px;z-index:80;background:var(--superficie);
     border-right:1px solid var(--borda);display:flex;flex-direction:column;gap:4px;padding:14px 8px;
@@ -134,7 +141,8 @@
   .menu-lateral .mi{flex:0 0 24px;text-align:center;font-size:1.05rem}
   .menu-lateral .mt{opacity:0;transition:opacity .12s}
   .menu-lateral:hover .mt{opacity:1}
-  .menu-lateral .menu-sair{margin-top:auto;color:var(--vermelho)}
+  .menu-lateral .menu-tema{margin-top:auto}
+  .menu-lateral .menu-sair{color:var(--vermelho)}
   /* Seletor de empresa (topo do menu lateral) */
   .menu-sep{height:1px;background:var(--borda);margin:6px 6px 8px}
   .menu-empresa-box{display:flex;flex-direction:column;gap:3px;padding:2px 0}
@@ -671,6 +679,16 @@
   .avi-item.perto .avi-data{background:var(--verde-claro);color:var(--verde);border-color:transparent}
   .avi-tit{font-size:.9rem;color:var(--txt);flex:1 1 auto}
   .avi-origem{font-size:.7rem;font-weight:600;color:var(--cinza);border:1px dashed var(--borda);border-radius:20px;padding:2px 8px}
+  .avi-ok{background:var(--verde-claro);color:var(--verde);border:1px solid transparent;border-radius:20px;padding:5px 12px;font-size:.74rem;font-weight:700;cursor:pointer;white-space:nowrap;flex:0 0 auto}
+  .avi-ok:hover{background:var(--verde);color:#fff}
+  .avi-item.feito{opacity:.6}
+  .avi-item.feito .avi-tit{text-decoration:line-through}
+  .avi-item.feito .avi-data{background:var(--verde-claro);color:var(--verde);border-color:transparent}
+  .avi-reabrir{background:transparent;color:var(--cinza);border:1px solid var(--borda);border-radius:20px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap;flex:0 0 auto}
+  .avi-reabrir:hover{border-color:var(--verde);color:var(--verde)}
+  .avi-toggle-feitos{background:transparent;border:none;color:var(--cinza);font-size:.8rem;font-weight:600;cursor:pointer;padding:10px 2px 4px;margin-top:6px;text-align:left}
+  .avi-toggle-feitos:hover{color:var(--txt)}
+  .avi-feitos{margin-top:4px}
   /* Calendário */
   .cal-topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
   .cal-mes{font-family:"Oswald","Poppins",sans-serif;font-size:1.05rem;font-weight:600;color:var(--txt);min-width:160px;text-align:center}
@@ -903,6 +921,7 @@
     <button class="btn-claro" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
     <button class="btn-claro" id="btnConfig" onclick="alternarConfig()"><span class="mi">⚙</span><span class="mt">Configurações</span></button>
     <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()"><span class="mi">👥</span><span class="mt">Usuários</span></button>
+    <button class="btn-claro menu-tema" id="btnTema" onclick="alternarTema()"><span class="mi" id="temaIcone">🌙</span><span class="mt" id="temaLabel">Tema escuro</span></button>
     <button class="btn-dourado menu-sair" onclick="sair()"><span class="mi">🚪</span><span class="mt">Sair</span></button>
   </aside>
 
@@ -914,14 +933,12 @@
         <span class="titulo-app"><span id="statusSalvo" aria-live="polite"></span></span>
         <span class="usuario-logado" id="usuarioLogado"></span>
       </h1>
-      <div class="tema-bloco">
-        <span class="tema-rotulo">Tema:</span>
-        <div class="tema-switch" role="group" aria-label="Tema">
-          <button type="button" class="tema-op" data-tema="claro" onclick="aplicarTema('claro')" title="Tema claro" aria-label="Tema claro">☀️</button>
-          <button type="button" class="tema-op" data-tema="escuro" onclick="aplicarTema('escuro')" title="Tema escuro" aria-label="Tema escuro">🌙</button>
-        </div>
+      <div class="header-acoes-topo">
+        <button class="header-sino" id="btnSinoHeader" onclick="alternarAvisos()" title="Notificações" aria-label="Notificações">
+          🔔<span class="header-sino-badge" id="badgeSinoHeader" style="display:none">0</span>
+        </button>
+        <button class="menu-hamb" id="btnMenuHamb" onclick="alternarMenuLateral()" title="Abrir menu" aria-label="Abrir menu">☰</button>
       </div>
-      <button class="menu-hamb" id="btnMenuHamb" onclick="alternarMenuLateral()" title="Abrir menu" aria-label="Abrir menu">☰</button>
     </div>
   </header>
 
@@ -1206,6 +1223,7 @@ const colPerfis = db.collection("perfis");   // nome amigável por usuário (id 
 const docCotacoes = db.collection("config").doc("cotacoesDia");   // cotações do dia por distribuidora
 const docPetros = db.collection("config").doc("petrosResumo");    // resumo do Resultado no período (sistema Petros)
 const docAvisos = db.collection("config").doc("avisos");          // notificações vindas das agendas Google dos postos
+const docAvisosStatus = db.collection("config").doc("avisosStatus"); // marca de "concluído" das notificações (não é tocado pela sincronização)
 const docAlertas = db.collection("config").doc("alertas");        // limites dos alertas de cotação (usados pelo servidor)
 const docTransportadora = db.collection("config").doc("transportadora"); // cadastro de motoristas/caminhões da Full Transportadora
 const colPuxadas = db.collection("puxadas");                      // registro de puxadas da Full Transportadora
@@ -1234,6 +1252,9 @@ let escutaAlertas = null;
 // Limites dos alertas de cotação (o servidor lê isto para decidir quando notificar)
 let alertasConfig = { cotacaoSubiu: { ativo: true, centavos: 3 }, cotacaoCaiu: { ativo: true, centavos: 3 } };
 let avisosDia = null;              // notificações das agendas sincronizadas da nuvem
+let avisosStatus = { concluidos: {} };   // notificações marcadas como concluídas (config/avisosStatus)
+let escutaAvisosStatus = null;
+let avisosMostrarFeitos = false;   // mostrar a seção "Concluídos"
 let escutaTransportadora = null;
 let motoristas = [];               // [{id, nome, caminhao, capacidade}] cadastro da transportadora
 let escutaPuxadas = null;
@@ -1482,7 +1503,11 @@ function aplicarTema(tema, salvar=true){
   document.querySelectorAll(".tema-op").forEach(b => {
     b.classList.toggle("ativo", b.dataset.tema === tema);
   });
-  // só grava quando for escolha explícita do usuário (clique no sol/lua)
+  // atualiza o botão de tema do menu lateral (ícone + rótulo do tema atual)
+  const _ti=document.getElementById("temaIcone"), _tl=document.getElementById("temaLabel");
+  if (_ti) _ti.textContent = escuro ? "🌙" : "☀️";
+  if (_tl) _tl.textContent = escuro ? "Tema escuro" : "Tema claro";
+  // só grava quando for escolha explícita do usuário
   if (salvar) { try { localStorage.setItem("margens_tema", tema); } catch {} }
   // re-renderiza para os gráficos assumirem as cores do tema
   if (typeof render === "function") { try { render(); } catch(e){} }
@@ -1544,6 +1569,7 @@ function aoMudarLogin(usuario){
     if (escutaCotacoes){ escutaCotacoes(); escutaCotacoes = null; }
     if (escutaPetros){ escutaPetros(); escutaPetros = null; }
     if (escutaAvisos){ escutaAvisos(); escutaAvisos = null; }
+    if (escutaAvisosStatus){ escutaAvisosStatus(); escutaAvisosStatus = null; }
     if (escutaAlertas){ escutaAlertas(); escutaAlertas = null; }
     if (escutaTransportadora){ escutaTransportadora(); escutaTransportadora = null; }
     if (escutaPuxadas){ escutaPuxadas(); escutaPuxadas = null; }
@@ -2013,6 +2039,14 @@ function iniciarSync(){
     const pc = document.getElementById("painelCalendario");
     if (pc && pc.classList.contains("aberto")) renderCalendario();
   }, ()=>{});
+  if (escutaAvisosStatus){ escutaAvisosStatus(); escutaAvisosStatus = null; }
+  escutaAvisosStatus = docAvisosStatus.onSnapshot(snap => {
+    const d = snap.exists ? (snap.data() || {}) : {};
+    avisosStatus = { concluidos: (d && d.concluidos) ? d.concluidos : {} };
+    atualizarBadgeAvisos();
+    const pa = document.getElementById("painelAvisos");
+    if (pa && pa.classList.contains("aberto")) renderAvisos();
+  }, ()=>{});
 
   // Lançamentos
   escutaLancamentos = colLancamentos.onSnapshot(async snap => {
@@ -2215,6 +2249,8 @@ function fecharTodosPaineis(exceto){
   if (bcot) bcot.classList.toggle("ativo", document.getElementById("painelCotacoes").classList.contains("aberto"));
   const bav = document.getElementById("btnAvisos");
   if (bav) bav.classList.toggle("ativo", document.getElementById("painelAvisos").classList.contains("aberto"));
+  const bsh = document.getElementById("btnSinoHeader");
+  if (bsh) bsh.classList.toggle("ativo", document.getElementById("painelAvisos").classList.contains("aberto"));
   const bcal = document.getElementById("btnCalendario");
   if (bcal) bcal.classList.toggle("ativo", document.getElementById("painelCalendario").classList.contains("aberto"));
 }
@@ -2587,6 +2623,8 @@ function alternarAvisos(){
   const aberto = abrirPainelExclusivo("painelAvisos");
   const b = document.getElementById("btnAvisos");
   if (b) b.classList.toggle("ativo", aberto);
+  const sh = document.getElementById("btnSinoHeader");
+  if (sh) sh.classList.toggle("ativo", aberto);
   if (aberto){ renderAvisos(); atualizarBotaoPush(); }
 }
 function diasAte(iso){
@@ -2603,41 +2641,85 @@ function avisosVisiveis(){
     .slice()
     .sort((a,b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
 }
-function atualizarBadgeAvisos(){
-  const b = document.getElementById("badgeAvisos");
-  if (!b) return;
-  const n = avisosVisiveis().filter(e => diasAte(e.data) <= 7).length;  // vencidos + próximos 7 dias
-  b.textContent = n;
-  b.style.display = n ? "" : "none";
+function chaveAviso(e){
+  const raw = (e.data||"")+"|"+(e.titulo||"")+"|"+(e.origem||"");
+  try { return btoa(unescape(encodeURIComponent(raw))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+  catch(_){ return raw.replace(/[^A-Za-z0-9]/g,"_"); }
 }
+function avisoConcluido(e){ return !!(avisosStatus && avisosStatus.concluidos && avisosStatus.concluidos[chaveAviso(e)]); }
+function atualizarBadgeAvisos(){
+  const n = avisosVisiveis().filter(e => !avisoConcluido(e) && diasAte(e.data) <= 7).length;  // pendentes: vencidos + próximos 7 dias
+  const b = document.getElementById("badgeAvisos");
+  if (b){ b.textContent = n; b.style.display = n ? "" : "none"; }
+  const sh = document.getElementById("badgeSinoHeader");
+  if (sh){ sh.textContent = n; sh.style.display = n ? "" : "none"; }
+}
+function concluirAvisoIdx(i){
+  const e = (window.__aviPend||[])[i]; if(!e) return;
+  if(!avisosStatus) avisosStatus={concluidos:{}};
+  if(!avisosStatus.concluidos) avisosStatus.concluidos={};
+  avisosStatus.concluidos[chaveAviso(e)] = { titulo:e.titulo, data:e.data, origem:e.origem||"", em:new Date().toISOString(), por: (typeof usuarioAtual!=="undefined"?usuarioAtual:"")||"" };
+  renderAvisos(); atualizarBadgeAvisos();
+  try { docAvisosStatus.set({ concluidos: avisosStatus.concluidos }); } catch(_){}
+}
+function reabrirAvisoIdx(i){
+  const e = (window.__aviFeito||[])[i]; if(!e) return;
+  if(avisosStatus && avisosStatus.concluidos){ delete avisosStatus.concluidos[chaveAviso(e)]; }
+  renderAvisos(); atualizarBadgeAvisos();
+  try { docAvisosStatus.set({ concluidos: (avisosStatus&&avisosStatus.concluidos)||{} }); } catch(_){}
+}
+function alternarConcluidos(){ avisosMostrarFeitos = !avisosMostrarFeitos; renderAvisos(); }
 function renderAvisos(){
   const cont = document.getElementById("conteudoAvisos");
   if (!cont) return;
   const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  const evs = avisosVisiveis();
+  const evsTodos = avisosVisiveis();
+  const pend = evsTodos.filter(e => !avisoConcluido(e));
+  const feitos = evsTodos.filter(e => avisoConcluido(e));
+  window.__aviPend = pend; window.__aviFeito = feitos;
   let html = '';
   if (avisosDia && avisosDia.atualizadoEm){
     html += '<p class="cot-quem">🔄 Atualizado em ' + fmtDataHora(new Date(avisosDia.atualizadoEm)) + '</p>';
   }
-  if (!evs.length){
+  if (!pend.length && !feitos.length){
     cont.innerHTML = html + '<p class="nota-dash">Nenhum aviso por enquanto. Os eventos registrados nas agendas dos postos aparecem aqui após a sincronização.</p>';
     return;
   }
-  html += '<div class="avi-lista">';
-  evs.forEach(e => {
-    const dd = diasAte(e.data);
-    const ddmm = fmtDataCurta(e.data).slice(0,5);
-    let cls = '', rot = fmtDataCurta(e.data);
-    if (dd < 0){ cls = 'vencido'; rot = '⚠️ VENCIDO ' + ddmm; }
-    else if (dd === 0){ cls = 'hoje'; rot = 'HOJE'; }
-    else if (dd === 1){ cls = 'perto'; rot = 'AMANHÃ'; }
-    else if (dd <= 7){ cls = 'perto'; rot = ddmm + ' • em ' + dd + ' dias'; }
-    html += '<div class="avi-item ' + cls + '"><span class="avi-data">' + rot + '</span>' +
-      '<span class="avi-tit">' + esc(e.titulo) + '</span>' +
-      (e.origem ? '<span class="avi-origem">' + esc(e.origem) + '</span>' : '') +
-      '</div>';
-  });
-  html += '</div>';
+  if (!pend.length){
+    html += '<p class="nota-dash">🎉 Tudo em dia! Nenhum aviso pendente.</p>';
+  } else {
+    html += '<div class="avi-lista">';
+    pend.forEach((e,i) => {
+      const dd = diasAte(e.data);
+      const ddmm = fmtDataCurta(e.data).slice(0,5);
+      let cls = '', rot = fmtDataCurta(e.data);
+      if (dd < 0){ cls = 'vencido'; rot = '⚠️ VENCIDO ' + ddmm; }
+      else if (dd === 0){ cls = 'hoje'; rot = 'HOJE'; }
+      else if (dd === 1){ cls = 'perto'; rot = 'AMANHÃ'; }
+      else if (dd <= 7){ cls = 'perto'; rot = ddmm + ' • em ' + dd + ' dias'; }
+      html += '<div class="avi-item ' + cls + '"><span class="avi-data">' + rot + '</span>' +
+        '<span class="avi-tit">' + esc(e.titulo) + '</span>' +
+        (e.origem ? '<span class="avi-origem">' + esc(e.origem) + '</span>' : '') +
+        '<button class="avi-ok" onclick="concluirAvisoIdx(' + i + ')" title="Marcar como concluído">✓ Concluí</button>' +
+        '</div>';
+    });
+    html += '</div>';
+  }
+  if (feitos.length){
+    html += '<button class="avi-toggle-feitos" onclick="alternarConcluidos()">' +
+      (avisosMostrarFeitos ? '▾' : '▸') + ' Concluídos (' + feitos.length + ')</button>';
+    if (avisosMostrarFeitos){
+      html += '<div class="avi-lista avi-feitos">';
+      feitos.forEach((e,i) => {
+        html += '<div class="avi-item feito"><span class="avi-data">✓ ' + fmtDataCurta(e.data).slice(0,5) + '</span>' +
+          '<span class="avi-tit">' + esc(e.titulo) + '</span>' +
+          (e.origem ? '<span class="avi-origem">' + esc(e.origem) + '</span>' : '') +
+          '<button class="avi-reabrir" onclick="reabrirAvisoIdx(' + i + ')" title="Reabrir">↩ Reabrir</button>' +
+          '</div>';
+      });
+      html += '</div>';
+    }
+  }
   cont.innerHTML = html;
 }
 
