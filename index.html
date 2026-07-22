@@ -625,6 +625,28 @@
   .btn-claro.confirmar{background:var(--vermelho);color:#fff;border-color:transparent}
   .msg-admin.ok{color:var(--txt)}   /* legível também nos temas escuros */
   .mot-form input{flex:1 1 170px}
+  /* ===== Descontos ===== */
+  .desc-controles{margin:2px 0 14px}
+  .desc-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;align-items:end}
+  .desc-campo{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .desc-campo label{font-size:.7rem;font-weight:600;color:var(--cinza);text-transform:uppercase;letter-spacing:.3px}
+  .desc-campo input,.desc-campo select{border:1px solid var(--borda);border-radius:8px;padding:9px;font-size:.9rem;background:var(--superficie);color:var(--txt);width:100%}
+  .desc-total-box{font-size:.92rem;color:var(--txt);background:var(--superficie-2);border:1px solid var(--borda);border-radius:8px;padding:9px 12px}
+  .desc-total-box b{color:var(--verde);font-size:1.05rem;margin-left:4px}
+  .desc-form .btn-verde{height:40px;white-space:nowrap}
+  .desc-cons{background:var(--verde-claro);border:1px solid var(--verde);border-radius:12px;padding:14px 16px;margin:4px 0 16px}
+  .desc-cons .dc-tit{font-family:"Oswald","Poppins",sans-serif;text-transform:uppercase;letter-spacing:.5px;font-weight:700;color:var(--verde);margin-bottom:10px;font-size:.95rem}
+  .dc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+  .dc-item{display:flex;flex-direction:column;gap:2px}
+  .dc-lbl{font-size:.7rem;color:var(--cinza);text-transform:uppercase;letter-spacing:.3px}
+  .dc-val{font-size:1.12rem;font-weight:700;color:var(--txt)}
+  .desc-tabela-wrap{overflow-x:auto}
+  .desc-tabela{width:100%;border-collapse:collapse;font-size:.85rem}
+  .desc-tabela th{text-align:left;font-size:.66rem;text-transform:uppercase;letter-spacing:.3px;color:var(--cinza);padding:6px 8px;border-bottom:1px solid var(--borda);white-space:nowrap}
+  .desc-tabela td{padding:8px;border-bottom:1px solid var(--borda);vertical-align:top}
+  .desc-tabela tr:hover td{background:var(--superficie-2)}
+  .desc-x{background:transparent;border:1px solid var(--borda);color:var(--cinza);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:.8rem}
+  .desc-x:hover{color:var(--vermelho);border-color:var(--vermelho)}
   .usr-item input[readonly]{background:transparent;border-color:transparent;color:var(--txt);opacity:.9;cursor:default;box-shadow:none}
   .usr-item.editando{box-shadow:0 0 0 2px var(--verde) inset;background:var(--verde-claro)}
   .usr-item .mot-campo{flex:1 1 190px;display:flex;min-width:0}
@@ -943,6 +965,7 @@
     <button class="btn-claro" id="btnRegistros" onclick="alternarRegistros()"><span class="mi">📋</span><span class="mt">Lançamentos</span></button>
     <button class="btn-claro" id="btnHistorico" onclick="alternarHistorico()"><span class="mi">🕐</span><span class="mt">Histórico</span></button>
     <button class="btn-claro" id="btnSimular" onclick="alternarSimular()"><span class="mi">💰</span><span class="mt">Simular Margens</span></button>
+    <button class="btn-claro" id="btnDescontos" onclick="alternarDescontos()"><span class="mi">🏷️</span><span class="mt">Descontos</span></button>
     <button class="btn-claro" id="btnComparativo" onclick="alternarComparativo()"><span class="mi">🚛</span><span class="mt">Comparativo de Preços</span></button>
     <button class="btn-claro" id="btnPuxadas" onclick="alternarPuxadas()"><span class="mi">🧾</span><span class="mt">Puxadas</span></button>
     <button class="btn-claro" id="btnCotacoes" onclick="alternarCotacoes()"><span class="mi">💲</span><span class="mt">Cotações do Dia</span></button>
@@ -1010,6 +1033,32 @@
         <span class="sim-dica-share">Gera uma imagem pronta para enviar no WhatsApp e outros apps.</span>
       </div>
       <canvas id="simCanvas" width="1080" height="1920" style="display:none"></canvas>
+    </div>
+  </div>
+
+  <div class="config" id="painelDescontos">
+    <div class="grupo">
+      <h2>Controle de Desconto</h2>
+      <p class="nota-dash">Registre os descontos dados aos clientes. Informe o preço do litro, quantos centavos de desconto por litro e o volume da venda — o <b>desconto total é calculado sozinho</b> (desconto por litro × volume). Quem lançou fica identificado pelo usuário; não precisa de assinatura.</p>
+      <div class="desc-controles">
+        <label class="cot-data-lbl">Dia: <input type="date" id="descData" onchange="carregarDescontos()"></label>
+      </div>
+      <div class="desc-form">
+        <div class="desc-campo"><label>Cliente</label><input id="descCliente" maxlength="60" placeholder="Nome do cliente"></div>
+        <div class="desc-campo"><label>Combustível (opcional)</label><select id="descComb"></select></div>
+        <div class="desc-campo"><label>Valor por litro (R$)</label><input id="descValorL" inputmode="decimal" placeholder="6,00" oninput="calcDescPreview()"></div>
+        <div class="desc-campo"><label>Desconto por litro (R$)</label><input id="descDescL" inputmode="decimal" placeholder="0,10" oninput="calcDescPreview()"></div>
+        <div class="desc-campo"><label>Volume (litros)</label><input id="descVolume" inputmode="decimal" placeholder="100" oninput="calcDescPreview()"></div>
+        <div class="desc-campo"><label>Motivo (opcional)</label><input id="descMotivo" maxlength="80" placeholder="Ex.: cliente fiel"></div>
+        <div class="desc-total-box">Desconto total: <b id="descTotalPreview">R$ 0,00</b></div>
+        <button class="btn-verde" onclick="lancarDesconto()">Lançar desconto</button>
+      </div>
+      <div class="msg-admin" id="msgDesconto"></div>
+    </div>
+    <div class="grupo">
+      <h2>Descontos do dia — <span id="descDiaRotulo"></span></h2>
+      <div id="descConsolidado"></div>
+      <div id="descLista"></div>
     </div>
   </div>
 
@@ -1259,6 +1308,7 @@ const docAvisosStatus = db.collection("config").doc("avisosStatus"); // marca de
 const docAlertas = db.collection("config").doc("alertas");        // limites dos alertas de cotação (usados pelo servidor)
 const docTransportadora = db.collection("config").doc("transportadora"); // cadastro de motoristas/caminhões da Full Transportadora
 const colPuxadas = db.collection("puxadas");                      // registro de puxadas da Full Transportadora
+const colDescontos = db.collection("descontos");                  // descontos dados aos clientes (Postos Full)
 let usuarioAtual = "";                 // e-mail de quem está logado (para o histórico)
 let nomeUsuario = "";                  // nome amigável do usuário logado
 let perfis = {};                       // mapa e-mail -> nome, sincronizado da nuvem
@@ -1293,6 +1343,9 @@ let avisosMostrarFeitos = false;   // mostrar a seção "Concluídos"
 let escutaTransportadora = null;
 let motoristas = [];               // [{id, nome, caminhao, capacidade}] cadastro da transportadora
 let escutaPuxadas = null;
+let descontos = [];                    // descontos do dia selecionado
+let escutaDescontos = null;
+let descDataSel = "";
 let puxadas = [];                  // [{id, data, motoristaId, motorista, caminhao, distribuidora, valorNotas, valorFrete, fretePorLitro, litros}]
 
 /* ================== Avisos push (Firebase Cloud Messaging) ================== */
@@ -1609,6 +1662,7 @@ function aoMudarLogin(usuario){
     if (escutaAlertas){ escutaAlertas(); escutaAlertas = null; }
     if (escutaTransportadora){ escutaTransportadora(); escutaTransportadora = null; }
     if (escutaPuxadas){ escutaPuxadas(); escutaPuxadas = null; }
+    if (escutaDescontos){ escutaDescontos(); escutaDescontos = null; }
     nuvemPronta = false;
   }
 }
@@ -2316,7 +2370,7 @@ function excluir(i){
 
 /* ================== Salvar / Carregar / Exportar ================== */
 // Painéis que ocupam a página; só um fica aberto por vez
-const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelComparativo","painelPuxadas","painelCotacoes","painelAvisos","painelCalendario","painelConfig","painelAdmin"];
+const PAINEIS = ["painelRegistros","painelDash","painelHistorico","painelSimular","painelDescontos","painelComparativo","painelPuxadas","painelCotacoes","painelAvisos","painelCalendario","painelConfig","painelAdmin"];
 function fecharTodosPaineis(exceto){
   PAINEIS.forEach(id => {
     const el = document.getElementById(id);
@@ -2335,6 +2389,8 @@ function fecharTodosPaineis(exceto){
   if (bd) bd.classList.toggle("ativo", document.getElementById("painelDash").classList.contains("aberto"));
   const bs = document.getElementById("btnSimular");
   if (bs) bs.classList.toggle("ativo", document.getElementById("painelSimular").classList.contains("aberto"));
+  const bdesc = document.getElementById("btnDescontos");
+  if (bdesc) bdesc.classList.toggle("ativo", document.getElementById("painelDescontos").classList.contains("aberto"));
   const bcomp = document.getElementById("btnComparativo");
   if (bcomp) bcomp.classList.toggle("ativo", document.getElementById("painelComparativo").classList.contains("aberto"));
   const bpux = document.getElementById("btnPuxadas");
@@ -2379,6 +2435,7 @@ const MENUS_APP = [
   {key:"registros",   btn:"btnRegistros",   pan:"painelRegistros",   emp:"postos", nome:"Lançamentos"},
   {key:"historico",   btn:"btnHistorico",   pan:"painelHistorico",   emp:"postos", nome:"Histórico"},
   {key:"simular",     btn:"btnSimular",     pan:"painelSimular",     emp:"postos", nome:"Simular Margens"},
+  {key:"descontos",   btn:"btnDescontos",   pan:"painelDescontos",   emp:"postos", nome:"Descontos"},
   {key:"comparativo", btn:"btnComparativo", pan:"painelComparativo", emp:"transp", nome:"Comparativo de Preços"},
   {key:"cotacoes",    btn:"btnCotacoes",    pan:"painelCotacoes",    emp:"transp", nome:"Cotações do Dia"},
   {key:"puxadas",     btn:"btnPuxadas",     pan:"painelPuxadas",     emp:"transp", nome:"Puxadas"},
@@ -3274,6 +3331,126 @@ function renderMotoristas(){
 /* ===================== Full Transportadora: Puxadas ===================== */
 let mesPuxadas = null;   // "AAAA-MM" do resumo mensal
 
+
+/* ================== Descontos (Postos Full) ================== */
+function alternarDescontos(){
+  const aberto = abrirPainelExclusivo("painelDescontos");
+  const b = document.getElementById("btnDescontos");
+  if (b) b.classList.toggle("ativo", aberto);
+  if (aberto){
+    const dt = document.getElementById("descData");
+    if (dt && !dt.value) dt.value = hojeISO();
+    popularSelectDescComb();
+    calcDescPreview();
+    carregarDescontos();
+  }
+}
+function popularSelectDescComb(){
+  const sel = document.getElementById("descComb");
+  if (!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">—</option>' + opcoesDe("combustivel").map(c => '<option value="'+escAttr(c)+'">'+escAttr(c)+'</option>').join("");
+  if (atual) sel.value = atual;
+}
+function parseNumBR(v){
+  let x = String(v==null?"":v).trim().replace(/\s/g,"");
+  if (x === "") return 0;
+  if (x.indexOf(",") >= 0) x = x.replace(/\./g,"").replace(",",".");
+  else x = x.replace(/\./g,"");
+  const n = parseFloat(x);
+  return isFinite(n) ? n : 0;
+}
+function calcDescPreview(){
+  const dl  = parsePrecoComp((document.getElementById("descDescL")||{}).value || "");
+  const vol = parseNumBR((document.getElementById("descVolume")||{}).value || "");
+  const el = document.getElementById("descTotalPreview");
+  if (el) el.textContent = "R$ " + fmtBR((dl*vol) || 0, 2);
+}
+function carregarDescontos(){
+  const dt = document.getElementById("descData");
+  descDataSel = (dt && dt.value) || hojeISO();
+  const rot = document.getElementById("descDiaRotulo");
+  if (rot) rot.textContent = fmtDataCurta(descDataSel);
+  if (escutaDescontos){ escutaDescontos(); escutaDescontos = null; }
+  try {
+    escutaDescontos = colDescontos.where("data","==",descDataSel).onSnapshot(snap => {
+      descontos = [];
+      snap.forEach(d => descontos.push(Object.assign({ id:d.id }, d.data() || {})));
+      renderDescontos();
+    }, () => { renderDescontos(); });
+  } catch(e){ renderDescontos(); }
+}
+function lancarDesconto(){
+  const cliente = (document.getElementById("descCliente").value || "").trim();
+  const comb    = document.getElementById("descComb").value || "";
+  const valorL  = parsePrecoComp(document.getElementById("descValorL").value || "");
+  const descL   = parsePrecoComp(document.getElementById("descDescL").value || "");
+  const volume  = parseNumBR(document.getElementById("descVolume").value || "");
+  const motivo  = (document.getElementById("descMotivo").value || "").trim();
+  if (!(descL > 0) || !(volume > 0)){
+    avisoAdmin("msgDesconto", "Informe o desconto por litro e o volume (litros).", "erro");
+    return;
+  }
+  const total = Math.round(descL * volume * 100) / 100;
+  const dt = document.getElementById("descData");
+  const data = (dt && dt.value) || hojeISO();
+  const ag = new Date();
+  const hora = String(ag.getHours()).padStart(2,"0") + ":" + String(ag.getMinutes()).padStart(2,"0");
+  const id = novoId();
+  colDescontos.doc(id).set({
+    data, hora, cliente, combustivel: comb,
+    valorLitro: valorL, descontoLitro: descL, volume, desconto: total,
+    motivo, por: usuarioAtual || "", criadoEm: Date.now()
+  }).then(() => {
+    avisoAdmin("msgDesconto", "Desconto lançado: R$ " + fmtBR(total,2) + " (" + fmtLitros(volume) + " L).", "ok");
+    limparFormDesconto();
+  }).catch(e => avisoAdmin("msgDesconto", msgErro(e), "erro"));
+}
+function limparFormDesconto(){
+  ["descCliente","descValorL","descDescL","descVolume","descMotivo"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  const sel = document.getElementById("descComb"); if (sel) sel.value = "";
+  calcDescPreview();
+}
+function removerDesconto(id){
+  if (!id) return;
+  colDescontos.doc(id).delete().catch(()=>{});
+}
+function renderDescontos(){
+  const cons = document.getElementById("descConsolidado");
+  const cont = document.getElementById("descLista");
+  if (!cons || !cont) return;
+  const itens = (descontos || []).slice().sort((a,b) => String(a.hora||"").localeCompare(String(b.hora||"")));
+  let totDesc = 0, totVol = 0;
+  itens.forEach(d => { totDesc += (+d.desconto || 0); totVol += (+d.volume || 0); });
+  const medL = totVol > 0 ? totDesc / totVol : 0;
+  cons.innerHTML =
+    '<div class="desc-cons"><div class="dc-tit">📊 Consolidado do dia</div><div class="dc-grid">' +
+      '<div class="dc-item"><span class="dc-lbl">Desconto total</span><span class="dc-val">R$ ' + fmtBR(totDesc,2) + '</span></div>' +
+      '<div class="dc-item"><span class="dc-lbl">Volume total</span><span class="dc-val">' + fmtLitros(totVol) + ' L</span></div>' +
+      '<div class="dc-item"><span class="dc-lbl">Desconto médio / litro</span><span class="dc-val">R$ ' + fmtBR(medL,4) + '</span></div>' +
+      '<div class="dc-item"><span class="dc-lbl">Lançamentos</span><span class="dc-val">' + itens.length + '</span></div>' +
+    '</div></div>';
+  if (!itens.length){ cont.innerHTML = '<p class="nota-dash">Nenhum desconto lançado neste dia.</p>'; return; }
+  const podeExcluir = d => (typeof ehAdminAtual === "function" && ehAdminAtual()) || (d.por && d.por === usuarioAtual);
+  let h = '<div class="desc-tabela-wrap"><table class="desc-tabela"><thead><tr>' +
+    '<th>Hora</th><th>Cliente</th><th>Combustível</th><th>Valor/L</th><th>Desc./L</th><th>Volume</th><th>Desconto</th><th>Motivo</th><th>Quem lançou</th><th></th></tr></thead><tbody>';
+  itens.forEach(d => {
+    h += '<tr>' +
+      '<td data-lbl="Hora">' + escAttr(d.hora || "") + '</td>' +
+      '<td data-lbl="Cliente">' + escAttr(d.cliente || "") + '</td>' +
+      '<td data-lbl="Combustível">' + escAttr(d.combustivel || "—") + '</td>' +
+      '<td data-lbl="Valor/L">' + ((+d.valorLitro>0) ? ("R$ " + fmtBR(+d.valorLitro,2)) : "—") + '</td>' +
+      '<td data-lbl="Desc./L">R$ ' + fmtBR(+d.descontoLitro || 0, 2) + '</td>' +
+      '<td data-lbl="Volume">' + fmtLitros(+d.volume || 0) + ' L</td>' +
+      '<td data-lbl="Desconto"><b>R$ ' + fmtBR(+d.desconto || 0, 2) + '</b></td>' +
+      '<td data-lbl="Motivo">' + escAttr(d.motivo || "") + '</td>' +
+      '<td data-lbl="Quem lançou">' + escAttr(nomeDe(d.por || "")) + '</td>' +
+      '<td>' + (podeExcluir(d) ? '<button class="desc-x" title="Remover" onclick="removerDesconto(\'' + escAspas(d.id) + '\')">✕</button>' : '') + '</td>' +
+    '</tr>';
+  });
+  h += '</tbody></table></div>';
+  cont.innerHTML = h;
+}
 function alternarPuxadas(){
   const aberto = abrirPainelExclusivo("painelPuxadas");
   const b = document.getElementById("btnPuxadas");
