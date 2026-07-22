@@ -1649,7 +1649,7 @@ function renderAdminUsuarios(){
       '</div>';
     if (!ehAdmin){
       const perm = permissoesTodos[e] || null;   // null = vê tudo
-      html += '<div class="usr-perm" id="perm_' + idSafe + '" style="display:none">';
+      html += '<div class="usr-perm" id="perm_' + idSafe + '"' + (permAbertos.has(e) ? '' : ' style="display:none"') + '>';
       html += '<div class="usr-perm-top"><span>Menus que <b>' + (mapa[e] || e) + '</b> pode ver:</span>' +
         '<button class="btn-claro usr-perm-reset" onclick="liberarTudoUsuario(\'' + asp(e) + '\')">Liberar tudo</button></div>';
       html += '<div class="usr-perm-grid">';
@@ -1665,10 +1665,14 @@ function renderAdminUsuarios(){
   });
   cont.innerHTML = html;
 }
+const permAbertos = new Set();   // e-mails cujo editor de menus está aberto (para sobreviver a re-desenhos)
 function alternarPermUsuario(email){
-  const idSafe = String(email).replace(/[^a-z0-9]/gi,'_');
+  email = String(email).toLowerCase();
+  const idSafe = email.replace(/[^a-z0-9]/gi,'_');
   const el = document.getElementById("perm_" + idSafe);
-  if (el) el.style.display = (el.style.display === "none") ? "" : "none";
+  const abrir = !permAbertos.has(email);
+  if (abrir) permAbertos.add(email); else permAbertos.delete(email);
+  if (el) el.style.display = abrir ? "" : "none";
 }
 function setPermUsuario(email, key, marcado){
   email = String(email).toLowerCase();
@@ -2043,8 +2047,8 @@ function iniciarSync(){
     permissoesTodos = norm;
     aplicarVisibilidadeMenus();
     garantirPainelPermitido();
-    const pAdm = document.getElementById("painelAdmin");
-    if (pAdm && pAdm.classList.contains("aberto")) renderAdminUsuarios();
+    // Não re-desenha a lista de usuários aqui: o clique já atualiza a caixa e re-desenhar
+    // fecharia o editor aberto. (A lista é montada ao abrir o painel, já com o estado atual.)
   }, ()=>{});
 
   // Configurações compartilhadas
