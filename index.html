@@ -662,6 +662,8 @@
   .pv-sync{margin:6px 0 2px}
   .pv-sync-ok{font-size:.82rem;color:var(--verde)}
   .pv-sync-vazio{font-size:.82rem;color:var(--cinza)}
+  .pv-sub{margin:16px 0 2px;font-size:.98rem;font-weight:700;color:var(--txt);border-top:1px solid var(--borda);padding-top:12px}
+  .pv-sub-nota{margin-top:2px}
   .usr-item input[readonly]{background:transparent;border-color:transparent;color:var(--txt);opacity:.9;cursor:default;box-shadow:none}
   .usr-item.editando{box-shadow:0 0 0 2px var(--verde) inset;background:var(--verde-claro)}
   .usr-item .mot-campo{flex:1 1 190px;display:flex;min-width:0}
@@ -1243,7 +1245,13 @@
       <p class="nota-dash">Estes preços são atualizados sozinhos a partir do Petros (Automação → Alteração de Preço Programado), de hora em hora no horário comercial. Eles pré-preenchem o "Valor por litro" no menu Descontos (podendo ser alterado na hora do lançamento). Se precisar, você também pode ajustar um valor manualmente aqui. Só o Posto Full - Teresina tem Gasolina Podium e o Diesel S10 Grid (aditivado); Caxias e Dutra têm o Diesel S10 comum.</p>
       <div class="pv-sync" id="pvSync"></div>
       <label class="cot-data-lbl">Unidade: <select id="pvPosto" onchange="renderPrecosVenda()"></select></label>
+      <h3 class="pv-sub">💵 Preços à vista</h3>
+      <p class="nota-dash pv-sub-nota">Vêm automaticamente do Petros e pré-preenchem o "Valor por litro" no menu Descontos. Você pode ajustar um valor manualmente se precisar.</p>
       <div id="pvCampos"></div>
+      <h3 class="pv-sub">🗓️ Preços a prazo</h3>
+      <p class="nota-dash pv-sub-nota">Informe manualmente os preços a prazo de cada combustível (por enquanto não vêm do Petros — no futuro dá para automatizar).</p>
+      <div class="pv-sync" id="pvSyncPrazo"></div>
+      <div id="pvCamposPrazo"></div>
       <div class="msg-admin" id="msgPrecosVenda"></div>
     </div>
     <div class="grupo">
@@ -1371,7 +1379,7 @@ let escutaPuxadas = null;
 let descontos = [];                    // descontos do dia selecionado
 let escutaDescontos = null;
 let descDataSel = "";
-let precosVenda = { porPosto: {}, atualizadoEm: "", por: "" };  // {porPosto:{posto:{comb:preco}}, atualizadoEm, por}
+let precosVenda = { porPosto: {}, porPostoPrazo: {}, atualizadoEm: "", por: "", atualizadoPrazoEm: "", porPrazo: "" };  // à vista (Petros) + a prazo (manual)
 let escutaPrecosVenda = null;
 let puxadas = [];                  // [{id, data, motoristaId, motorista, caminhao, distribuidora, valorNotas, valorFrete, fretePorLitro, litros}]
 
@@ -2185,7 +2193,14 @@ function iniciarSync(){
   // Preços de venda padrão por posto (pré-preenche o Descontos)
   escutaPrecosVenda = docPrecosVenda.onSnapshot(snap => {
     const d = snap.exists ? (snap.data() || {}) : {};
-    precosVenda = { porPosto: (d && d.porPosto) ? d.porPosto : {}, atualizadoEm: (d && d.atualizadoEm) ? d.atualizadoEm : "", por: (d && d.por) ? d.por : "" };
+    precosVenda = {
+      porPosto: (d && d.porPosto) ? d.porPosto : {},
+      porPostoPrazo: (d && d.porPostoPrazo) ? d.porPostoPrazo : {},
+      atualizadoEm: (d && d.atualizadoEm) ? d.atualizadoEm : "",
+      por: (d && d.por) ? d.por : "",
+      atualizadoPrazoEm: (d && d.atualizadoPrazoEm) ? d.atualizadoPrazoEm : "",
+      porPrazo: (d && d.porPrazo) ? d.porPrazo : ""
+    };
     const pcv = document.getElementById("painelConfig");
     if (pcv && pcv.classList.contains("aberto")) renderPrecosVenda();
     const pdv = document.getElementById("painelDescontos");
@@ -3445,18 +3460,31 @@ function renderPrecosVenda(){
   if (atual && postos.indexOf(atual) >= 0) selP.value = atual;
   const posto = selP.value || postos[0] || "";
   const cont = document.getElementById("pvCampos");
+  const contP = document.getElementById("pvCamposPrazo");
   if (!cont) return;
-  if (!posto){ cont.innerHTML = '<p class="nota-dash">Cadastre os postos acima para informar os preços.</p>'; return; }
+  if (!posto){
+    cont.innerHTML = '<p class="nota-dash">Cadastre os postos acima para informar os preços.</p>';
+    if (contP) contP.innerHTML = "";
+    return;
+  }
+  cont.innerHTML  = pvGridHtml(posto, precosVenda.porPosto || {}, "salvarPrecoVenda");
+  if (contP) contP.innerHTML = pvGridHtml(posto, precosVenda.porPostoPrazo || {}, "salvarPrecoPrazo");
+  const syncP = document.getElementById("pvSyncPrazo");
+  const quandoP = fmtQuandoISO(precosVenda.atualizadoPrazoEm);
+  if (syncP) syncP.innerHTML = quandoP
+    ? '<span class="pv-sync-ok">✍️ Preços a prazo atualizados em <b>' + escAttr(quandoP) + '</b>' + (precosVenda.porPrazo ? ' · ' + escAttr(precosVenda.porPrazo) : '') + '</span>'
+    : '<span class="pv-sync-vazio">Preços a prazo ainda não informados para esta unidade.</span>';
+}
+function pvGridHtml(posto, mapa, fn){
   const combs = combustiveisDoPosto(posto);
-  const precos = (precosVenda.porPosto||{})[posto] || {};
+  const precos = mapa[posto] || {};
   let h = '<div class="pv-grid">';
   combs.forEach(c => {
     const v = precos[c] || 0;
     h += '<div class="pv-item"><label>'+escAttr(c)+'</label>' +
-      '<input inputmode="decimal" value="'+fmtPrecoComp(v)+'" placeholder="0,00" onchange="salvarPrecoVenda(\''+escAspas(posto)+'\',\''+escAspas(c)+'\',this.value)"></div>';
+      '<input inputmode="decimal" value="'+fmtPrecoComp(v)+'" placeholder="0,00" onchange="'+fn+'(\''+escAspas(posto)+'\',\''+escAspas(c)+'\',this.value)"></div>';
   });
-  h += '</div>';
-  cont.innerHTML = h;
+  return h + '</div>';
 }
 function salvarPrecoVenda(posto, comb, val){
   const v = parsePrecoComp(val);
@@ -3466,8 +3494,28 @@ function salvarPrecoVenda(posto, comb, val){
   const agora = new Date().toISOString();
   precosVenda.atualizadoEm = agora;
   precosVenda.por = (usuarioAtual || "") + " (manual)";
-  docPrecosVenda.set({ porPosto: precosVenda.porPosto, atualizadoEm: agora, por: precosVenda.por })
-    .then(() => avisoAdmin("msgPrecosVenda", "Preço de "+comb+" ("+posto+") salvo.", "ok"))
+  docPrecosVenda.set({
+    porPosto: precosVenda.porPosto, porPostoPrazo: precosVenda.porPostoPrazo || {},
+    atualizadoEm: agora, por: precosVenda.por,
+    atualizadoPrazoEm: precosVenda.atualizadoPrazoEm || "", porPrazo: precosVenda.porPrazo || ""
+  })
+    .then(() => avisoAdmin("msgPrecosVenda", "Preço à vista de "+comb+" ("+posto+") salvo.", "ok"))
+    .catch(e => avisoAdmin("msgPrecosVenda", msgErro(e), "erro"));
+}
+function salvarPrecoPrazo(posto, comb, val){
+  const v = parsePrecoComp(val);
+  if (!precosVenda.porPostoPrazo) precosVenda.porPostoPrazo = {};
+  if (!precosVenda.porPostoPrazo[posto]) precosVenda.porPostoPrazo[posto] = {};
+  if (v > 0) precosVenda.porPostoPrazo[posto][comb] = v; else delete precosVenda.porPostoPrazo[posto][comb];
+  const agora = new Date().toISOString();
+  precosVenda.atualizadoPrazoEm = agora;
+  precosVenda.porPrazo = (usuarioAtual || "") + " (manual)";
+  docPrecosVenda.set({
+    porPosto: precosVenda.porPosto || {}, porPostoPrazo: precosVenda.porPostoPrazo,
+    atualizadoEm: precosVenda.atualizadoEm || "", por: precosVenda.por || "",
+    atualizadoPrazoEm: agora, porPrazo: precosVenda.porPrazo
+  })
+    .then(() => avisoAdmin("msgPrecosVenda", "Preço a prazo de "+comb+" ("+posto+") salvo.", "ok"))
     .catch(e => avisoAdmin("msgPrecosVenda", msgErro(e), "erro"));
 }
 function parseNumBR(v){
