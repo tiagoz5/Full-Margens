@@ -647,6 +647,11 @@
   .desc-tabela tr:hover td{background:var(--superficie-2)}
   .desc-x{background:transparent;border:1px solid var(--borda);color:var(--cinza);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:.8rem}
   .desc-x:hover{color:var(--vermelho);border-color:var(--vermelho)}
+  /* ===== Preços de venda (cadastro) ===== */
+  .pv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:12px}
+  .pv-item{display:flex;align-items:center;gap:8px;justify-content:space-between;border:1px solid var(--borda);border-radius:8px;padding:8px 11px;background:var(--superficie-2)}
+  .pv-item label{font-size:.86rem;color:var(--txt);flex:1 1 auto}
+  .pv-item input{width:104px;text-align:right;border:1px solid var(--borda);border-radius:6px;padding:7px;font-size:.9rem;background:var(--superficie);color:var(--txt)}
   .usr-item input[readonly]{background:transparent;border-color:transparent;color:var(--txt);opacity:.9;cursor:default;box-shadow:none}
   .usr-item.editando{box-shadow:0 0 0 2px var(--verde) inset;background:var(--verde-claro)}
   .usr-item .mot-campo{flex:1 1 190px;display:flex;min-width:0}
@@ -1044,8 +1049,9 @@
         <label class="cot-data-lbl">Dia: <input type="date" id="descData" onchange="carregarDescontos()"></label>
       </div>
       <div class="desc-form">
+        <div class="desc-campo"><label>Posto</label><select id="descPosto" onchange="onDescPostoChange()"></select></div>
         <div class="desc-campo"><label>Cliente</label><input id="descCliente" maxlength="60" placeholder="Nome do cliente"></div>
-        <div class="desc-campo"><label>Combustível (opcional)</label><select id="descComb"></select></div>
+        <div class="desc-campo"><label>Combustível</label><select id="descComb" onchange="onDescCombChange()"></select></div>
         <div class="desc-campo"><label>Valor por litro (R$)</label><input id="descValorL" inputmode="decimal" placeholder="6,00" oninput="calcDescPreview()"></div>
         <div class="desc-campo"><label>Desconto por litro (R$)</label><input id="descDescL" inputmode="decimal" placeholder="0,10" oninput="calcDescPreview()"></div>
         <div class="desc-campo"><label>Volume (litros)</label><input id="descVolume" inputmode="decimal" placeholder="100" oninput="calcDescPreview()"></div>
@@ -1222,6 +1228,13 @@
         <span class="nota">Valor usado automaticamente em novos registros. O frete de cada linha continua editável na tabela.</span>
       </div>
     </div>
+    <div class="grupo" id="grupoPrecosVenda">
+      <h2>Preços de venda (padrão)</h2>
+      <p class="nota-dash">Informe o preço de venda atual de cada combustível em cada unidade. Ele pré-preenche o "Valor por litro" no menu Descontos (podendo ser alterado na hora). Só o Posto Full - Teresina tem Gasolina Podium.</p>
+      <label class="cot-data-lbl">Unidade: <select id="pvPosto" onchange="renderPrecosVenda()"></select></label>
+      <div id="pvCampos"></div>
+      <div class="msg-admin" id="msgPrecosVenda"></div>
+    </div>
     <div class="grupo">
       <h2>Alertas de cotação (Vibra)</h2>
       <p class="nota-dash">Receba uma notificação no celular quando o preço de um produto na Vibra mudar bastante de um dia para o outro. Os avisos chegam pelo servidor toda manhã, mesmo com o computador desligado — os aparelhos precisam ter os avisos ativados no menu Notificações.</p>
@@ -1306,6 +1319,7 @@ const docPetros = db.collection("config").doc("petrosResumo");    // resumo do R
 const docAvisos = db.collection("config").doc("avisos");          // notificações vindas das agendas Google dos postos
 const docAvisosStatus = db.collection("config").doc("avisosStatus"); // marca de "concluído" das notificações (não é tocado pela sincronização)
 const docAlertas = db.collection("config").doc("alertas");        // limites dos alertas de cotação (usados pelo servidor)
+const docPrecosVenda = db.collection("config").doc("precosVenda"); // preço de venda padrão por posto/combustível (pré-preenche o Descontos)
 const docTransportadora = db.collection("config").doc("transportadora"); // cadastro de motoristas/caminhões da Full Transportadora
 const colPuxadas = db.collection("puxadas");                      // registro de puxadas da Full Transportadora
 const colDescontos = db.collection("descontos");                  // descontos dados aos clientes (Postos Full)
@@ -1346,6 +1360,8 @@ let escutaPuxadas = null;
 let descontos = [];                    // descontos do dia selecionado
 let escutaDescontos = null;
 let descDataSel = "";
+let precosVenda = { porPosto: {} };     // {porPosto:{posto:{comb:preco}}}
+let escutaPrecosVenda = null;
 let puxadas = [];                  // [{id, data, motoristaId, motorista, caminhao, distribuidora, valorNotas, valorFrete, fretePorLitro, litros}]
 
 /* ================== Avisos push (Firebase Cloud Messaging) ================== */
@@ -1663,6 +1679,7 @@ function aoMudarLogin(usuario){
     if (escutaTransportadora){ escutaTransportadora(); escutaTransportadora = null; }
     if (escutaPuxadas){ escutaPuxadas(); escutaPuxadas = null; }
     if (escutaDescontos){ escutaDescontos(); escutaDescontos = null; }
+    if (escutaPrecosVenda){ escutaPrecosVenda(); escutaPrecosVenda = null; }
     nuvemPronta = false;
   }
 }
@@ -1872,6 +1889,7 @@ function renderConfig(){
   if (sc && document.activeElement !== sc) sc.value = isFinite(sub.centavos) ? sub.centavos : 3;
   const cc = document.getElementById("alertaCaiuCent");
   if (cc && document.activeElement !== cc) cc.value = isFinite(cai.centavos) ? cai.centavos : 3;
+  renderPrecosVenda();
 }
 
 function salvarAlertas(){
@@ -2151,6 +2169,16 @@ function iniciarSync(){
     }
     const pc = document.getElementById("painelConfig");
     if (pc && pc.classList.contains("aberto")) renderConfig();
+  }, ()=>{});
+
+  // Preços de venda padrão por posto (pré-preenche o Descontos)
+  escutaPrecosVenda = docPrecosVenda.onSnapshot(snap => {
+    const d = snap.exists ? (snap.data() || {}) : {};
+    precosVenda = { porPosto: (d && d.porPosto) ? d.porPosto : {} };
+    const pcv = document.getElementById("painelConfig");
+    if (pcv && pcv.classList.contains("aberto")) renderPrecosVenda();
+    const pdv = document.getElementById("painelDescontos");
+    if (pdv && pdv.classList.contains("aberto")) autofillValorL();
   }, ()=>{});
 
   // Cadastro de motoristas/caminhões (Full Transportadora)
@@ -2464,6 +2492,7 @@ function aplicarVisibilidadeMenus(){
     b.style.display = (menuVisivelEmpresa(m, ehTransp) && menuPermitido(m.key)) ? "" : "none";
   });
   const gm = document.getElementById("grupoMotoristas"); if (gm) gm.style.display = ehTransp ? "" : "none";
+  const gpv = document.getElementById("grupoPrecosVenda"); if (gpv) gpv.style.display = ehTransp ? "none" : "";
 }
 // Abre o primeiro menu (com painel) permitido da empresa atual
 function abrirPrimeiroPermitido(){
@@ -3340,17 +3369,74 @@ function alternarDescontos(){
   if (aberto){
     const dt = document.getElementById("descData");
     if (dt && !dt.value) dt.value = hojeISO();
+    popularSelectDescPosto();
     popularSelectDescComb();
     calcDescPreview();
     carregarDescontos();
   }
 }
+function postoTemPodium(posto){ return String(posto||"").toLowerCase().indexOf("teresina") >= 0; }
+function combustiveisDoPosto(posto){
+  return opcoesDe("combustivel").filter(c => !/podium/i.test(c) || postoTemPodium(posto));
+}
+function popularSelectDescPosto(){
+  const sel = document.getElementById("descPosto");
+  if (!sel) return;
+  const postos = opcoesDe("posto");
+  const atual = sel.value;
+  sel.innerHTML = postos.map(p => '<option value="'+escAttr(p)+'">'+escAttr(p)+'</option>').join("");
+  if (atual && postos.indexOf(atual) >= 0) sel.value = atual;
+}
 function popularSelectDescComb(){
   const sel = document.getElementById("descComb");
   if (!sel) return;
+  const posto = (document.getElementById("descPosto")||{}).value || "";
+  const combs = combustiveisDoPosto(posto);
   const atual = sel.value;
-  sel.innerHTML = '<option value="">—</option>' + opcoesDe("combustivel").map(c => '<option value="'+escAttr(c)+'">'+escAttr(c)+'</option>').join("");
-  if (atual) sel.value = atual;
+  sel.innerHTML = '<option value="">—</option>' + combs.map(c => '<option value="'+escAttr(c)+'">'+escAttr(c)+'</option>').join("");
+  sel.value = (atual && combs.indexOf(atual) >= 0) ? atual : "";
+}
+function onDescPostoChange(){ popularSelectDescComb(); autofillValorL(); }
+function onDescCombChange(){ autofillValorL(); }
+function autofillValorL(){
+  const posto = (document.getElementById("descPosto")||{}).value || "";
+  const comb  = (document.getElementById("descComb")||{}).value || "";
+  const inp = document.getElementById("descValorL");
+  if (!inp || !comb) return;
+  const pv = ((precosVenda.porPosto||{})[posto]||{})[comb];
+  inp.value = (pv > 0) ? fmtPrecoComp(pv) : "";
+  calcDescPreview();
+}
+function renderPrecosVenda(){
+  const selP = document.getElementById("pvPosto");
+  if (!selP) return;
+  const postos = opcoesDe("posto");
+  const atual = selP.value;
+  selP.innerHTML = postos.map(p => '<option value="'+escAttr(p)+'">'+escAttr(p)+'</option>').join("");
+  if (atual && postos.indexOf(atual) >= 0) selP.value = atual;
+  const posto = selP.value || postos[0] || "";
+  const cont = document.getElementById("pvCampos");
+  if (!cont) return;
+  if (!posto){ cont.innerHTML = '<p class="nota-dash">Cadastre os postos acima para informar os preços.</p>'; return; }
+  const combs = combustiveisDoPosto(posto);
+  const precos = (precosVenda.porPosto||{})[posto] || {};
+  let h = '<div class="pv-grid">';
+  combs.forEach(c => {
+    const v = precos[c] || 0;
+    h += '<div class="pv-item"><label>'+escAttr(c)+'</label>' +
+      '<input inputmode="decimal" value="'+fmtPrecoComp(v)+'" placeholder="0,00" onchange="salvarPrecoVenda(\''+escAspas(posto)+'\',\''+escAspas(c)+'\',this.value)"></div>';
+  });
+  h += '</div>';
+  cont.innerHTML = h;
+}
+function salvarPrecoVenda(posto, comb, val){
+  const v = parsePrecoComp(val);
+  if (!precosVenda.porPosto) precosVenda.porPosto = {};
+  if (!precosVenda.porPosto[posto]) precosVenda.porPosto[posto] = {};
+  if (v > 0) precosVenda.porPosto[posto][comb] = v; else delete precosVenda.porPosto[posto][comb];
+  docPrecosVenda.set({ porPosto: precosVenda.porPosto })
+    .then(() => avisoAdmin("msgPrecosVenda", "Preço de "+comb+" ("+posto+") salvo.", "ok"))
+    .catch(e => avisoAdmin("msgPrecosVenda", msgErro(e), "erro"));
 }
 function parseNumBR(v){
   let x = String(v==null?"":v).trim().replace(/\s/g,"");
@@ -3381,6 +3467,7 @@ function carregarDescontos(){
   } catch(e){ renderDescontos(); }
 }
 function lancarDesconto(){
+  const posto   = document.getElementById("descPosto").value || "";
   const cliente = (document.getElementById("descCliente").value || "").trim();
   const comb    = document.getElementById("descComb").value || "";
   const valorL  = parsePrecoComp(document.getElementById("descValorL").value || "");
@@ -3398,7 +3485,7 @@ function lancarDesconto(){
   const hora = String(ag.getHours()).padStart(2,"0") + ":" + String(ag.getMinutes()).padStart(2,"0");
   const id = novoId();
   colDescontos.doc(id).set({
-    data, hora, cliente, combustivel: comb,
+    data, hora, posto, cliente, combustivel: comb,
     valorLitro: valorL, descontoLitro: descL, volume, desconto: total,
     motivo, por: usuarioAtual || "", criadoEm: Date.now()
   }).then(() => {
