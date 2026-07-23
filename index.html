@@ -676,6 +676,10 @@
   .perfil-top{display:flex;gap:8px;align-items:center;margin-bottom:8px}
   .perfil-nome{flex:1 1 auto;border:1px solid var(--borda);border-radius:6px;padding:7px 9px;font-size:.92rem;font-weight:600;background:var(--superficie);color:var(--txt)}
   .perfil-x{color:var(--vermelho);flex:0 0 auto}
+  .painel-tools{display:flex;justify-content:flex-end;gap:8px;margin:0 0 10px}
+  .painel-tools .pt-btn{font-size:.78rem;padding:6px 12px;border:1px solid var(--borda);border-radius:7px;background:var(--superficie-2);color:var(--txt);cursor:pointer}
+  .painel-tools .pt-btn:hover{border-color:var(--verde);color:var(--verde)}
+  @media print{ .painel-tools{display:none} }
   .usr-item input[readonly]{background:transparent;border-color:transparent;color:var(--txt);opacity:.9;cursor:default;box-shadow:none}
   .usr-item.editando{box-shadow:0 0 0 2px var(--verde) inset;background:var(--verde-claro)}
   .usr-item .mot-campo{flex:1 1 190px;display:flex;min-width:0}
@@ -1000,8 +1004,6 @@
     <button class="btn-claro" id="btnCotacoes" onclick="alternarCotacoes()"><span class="mi">💲</span><span class="mt">Cotações do Dia</span></button>
     <button class="btn-claro" id="btnAvisos" onclick="alternarAvisos()"><span class="mi">🔔</span><span class="mt">Notificações</span><span class="menu-badge" id="badgeAvisos" style="display:none"></span></button>
     <button class="btn-claro" id="btnCalendario" onclick="alternarCalendario()"><span class="mi">📅</span><span class="mt">Calendário</span></button>
-    <button class="btn-claro" id="btnPdf" onclick="exportarPDF()"><span class="mi">📄</span><span class="mt">Exportar PDF</span></button>
-    <button class="btn-claro" id="btnImprimir" onclick="imprimir()"><span class="mi">🖨️</span><span class="mt">Imprimir</span></button>
     <button class="btn-claro" id="btnConta" onclick="alternarConta()"><span class="mi">👤</span><span class="mt">Minha conta</span></button>
     <button class="btn-claro" id="btnConfig" onclick="alternarConfig()"><span class="mi">⚙</span><span class="mt">Configurações</span></button>
     <button class="btn-claro" id="btnUsuarios" style="display:none" onclick="alternarAdmin()"><span class="mi">👥</span><span class="mt">Painel Administrativo</span></button>
@@ -2711,8 +2713,6 @@ const MENUS_APP = [
   {key:"puxadas",     btn:"btnPuxadas",     pan:"painelPuxadas",     emp:"transp", nome:"Puxadas"},
   {key:"avisos",      btn:"btnAvisos",      pan:"painelAvisos",      emp:"ambos",  nome:"Notificações"},
   {key:"calendario",  btn:"btnCalendario",  pan:"painelCalendario",  emp:"ambos",  nome:"Calendário"},
-  {key:"pdf",         btn:"btnPdf",         pan:null,                emp:"ambos",  nome:"Exportar PDF"},
-  {key:"imprimir",    btn:"btnImprimir",    pan:null,                emp:"ambos",  nome:"Imprimir"},
   {key:"conta",       btn:"btnConta",       pan:"painelConta",       emp:"ambos",  nome:"Minha conta"},
   {key:"config",      btn:"btnConfig",      pan:"painelConfig",      emp:"ambos",  nome:"Configurações"}
 ];
@@ -2746,6 +2746,7 @@ function menuVisivelEmpresa(m, ehTransp){
   return m.emp === "ambos" || (m.emp === "postos" && !ehTransp) || (m.emp === "transp" && ehTransp);
 }
 function aplicarVisibilidadeMenus(){
+  instalarFerramentasPaineis();
   const ehTransp = empresa === "transportadora";
   MENUS_APP.forEach(m => {
     const b = document.getElementById(m.btn);
@@ -4989,12 +4990,29 @@ function renderDashboard(){
 /* ================== Exportar PDF ================== */
 /* ================== Exportar / Imprimir o painel visível ================== */
 // Identifica qual painel está aberto na tela
+// Barrinha "Exportar PDF / Imprimir" no topo de cada menu de conteúdo (v113 — saiu da barra lateral)
+function instalarFerramentasPaineis(){
+  const alvos = ["painelDash","painelRegistros","painelHistorico","painelSimular","painelDescontos",
+                 "painelComparativo","painelCotacoes","painelPuxadas","painelAvisos","painelCalendario"];
+  alvos.forEach(id => {
+    const p = document.getElementById(id);
+    if (!p || p.querySelector(".painel-tools")) return;
+    const bar = document.createElement("div");
+    bar.className = "painel-tools";
+    bar.innerHTML =
+      '<button class="btn-claro pt-btn" onclick="exportarPDF()" title="Gera um PDF deste menu">📄 Exportar PDF</button>' +
+      '<button class="btn-claro pt-btn" onclick="imprimir()" title="Imprime este menu">🖨️ Imprimir</button>';
+    p.insertBefore(bar, p.firstChild);
+  });
+}
 function painelVisivelInfo(){
   const mapa = [
     ["painelRegistros", "Lançamentos", "lancamentos"],
     ["painelDash",      "Dashboard",   "dashboard"],
     ["painelHistorico", "Histórico",   "historico"],
     ["painelSimular",   "Simular Margens", "simulacao"],
+    ["painelDescontos", "Descontos",   "descontos"],
+    ["painelPuxadas",   "Puxadas",     "puxadas"],
     ["painelComparativo", "Comparativo de Preços", "comparativo"],
     ["painelCotacoes",  "Cotações do Dia", "cotacoes"],
     ["painelAvisos",    "Notificações", "notificacoes"],
@@ -5011,7 +5029,8 @@ function painelVisivelInfo(){
 }
 
 function nomeArquivoPadrao(info){
-  return "postos_full_" + info.slug + "_" + new Date().toISOString().slice(0,10);
+  const prefixo = (typeof empresa !== "undefined" && empresa === "transportadora") ? "full_transportadora_" : "postos_full_";
+  return prefixo + info.slug + "_" + new Date().toISOString().slice(0,10);
 }
 
 // Pergunta o nome do arquivo ao usuário (limpa caracteres inválidos)
@@ -5027,7 +5046,7 @@ function cabecalhoPDF(doc, subtitulo){
   doc.setFillColor(30,30,30); doc.rect(0,0,210,22,"F");
   doc.setFillColor(255,100,1); doc.rect(0,22,210,1.4,"F");
   doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(14);
-  doc.text("POSTOS FULL", 12, 10);
+  doc.text((typeof empresa !== "undefined" && empresa === "transportadora") ? "FULL TRANSPORTADORA" : "POSTOS FULL", 12, 10);
   doc.setFont("helvetica","normal"); doc.setFontSize(9);
   doc.text(subtitulo || "Controle de Margens", 12, 16.5);
   const ag = new Date();
